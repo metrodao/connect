@@ -36,6 +36,7 @@ export function handleDeployDAO(event: DeployDAOEvent): void {
   org.acl = kernel.acl()
   org.apps = []
   org.permissions = []
+  org.createdAt = event.block.timestamp
 
   // add the org to the factory
   const currentOrganizations = factory.organizations
