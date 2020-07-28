@@ -27,6 +27,8 @@ type Repo @entity {
   node: Bytes! #
   "Latests Version of this repo published to aragonPM"
   lastVersion: Version
+  "Number of installations for the app in this repo overall"
+  appCount: Int!
   versions: [Version!]!
   registry: Registry! @derivedFrom(field: "repos")
 }
