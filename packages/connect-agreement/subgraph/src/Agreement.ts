@@ -103,7 +103,11 @@ export function handleActionClosed(event: ActionClosed): void {
   action.closed = true
   action.save()
 
-  createStakingMovement(event.address, event.params.actionId, 'closed', event)
+  const challenge  = Challenge.load(action.lastChallenge)
+
+  if(challenge.state != 'Settled'){
+    createStakingMovement(event.address, event.params.actionId, 'closed', event)
+  }
 }
 
 export function handleActionChallenged(event: ActionChallenged): void {
