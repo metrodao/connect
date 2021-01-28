@@ -3,10 +3,13 @@ export type Address = string
 export type Network = {
   name: string
   chainId: number
-  ensAddress?: Address
+  ensAddress: Address
 }
 
-export type Networkish = Network | string | number
+export type Networkish =
+  | { chainId?: number; ensAddress?: Address; name?: string }
+  | string
+  | number
 
 // Normalized app fiters
 export type AppFilters = {
@@ -27,3 +30,23 @@ export type AppFiltersParam =
     }
 
 export type SubscriptionHandler = { unsubscribe: () => void }
+export type SubscriptionCallback<T> = (error: Error | null, data?: T) => void
+export type SubscriptionStart<T> = (
+  callback: SubscriptionCallback<T>
+) => SubscriptionHandler
+export type SubscriptionResult<T> = SubscriptionHandler | SubscriptionStart<T>
+
+export function isSubscriptionStart<T>(
+  value: unknown
+): value is SubscriptionStart<T> {
+  return typeof value === 'function'
+}
+
+export function isSubscriptionHandler(
+  value: unknown
+): value is SubscriptionHandler {
+  return (
+    typeof value === 'object' &&
+    typeof (value as SubscriptionHandler)?.unsubscribe === 'function'
+  )
+}

@@ -1,92 +1,144 @@
 # Voting app
 
-This is an Aragon app specific connector for the Voting app built using The Graph.
+This is an app connector for the Voting app (`voting.aragonpm.eth`). It only supports The Graph for now.
 
-## Connector API
+## Usage
 
-To create a new instance of the connector, you need the specific Voting app address and the Subgraph URL:
+To connect a Voting app, you need to pass it to `connectVoting()`:
 
-```javascript
-import { Voting } from '@aragon/connect-thegraph-voting'
+```js
+import connect from '@aragon/connect'
+import connectVoting from '@aragon/connect-voting'
 
-const voting = new Voting(VOTING_APP_ADDRESS, VOTING_APP_SUBGRAPH_URL)
+const org = await connect('myorg.aragonid.eth', 'thegraph')
+const voting = await connectVoting(org.app('voting'))
 ```
 
-Once you have an instance of the `Voting` object, you can use the following API to fetch data.
+It extends the `App` object, which means that every method and property of [`App`](../api-reference/app.md) is also available on this object.
 
-### voting\#votesForApp\(appAddress, first, skip\)
+## connect\(app, connector\)
 
-Get the list of votes in the provided Voting app.
+Connects and returns a `Voting` instance.
 
-| Name         | Type              | Description                            |
-| ------------ | ----------------- | -------------------------------------- |
-| `appAddress` | `String`          | Address of the Voting app.             |
-| `first`      | `String`          | Pagination argument.                   |
-| `skip`       | `String`          | Pagination argument.                   |
-| returns      | `Promise<Vote[]>` | Result data parsed as a list of votes. |
+| Name        | Type                                   | Description                                                                                                                                            |
+| ----------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `app`       | `App` or `Promise<App>`                | The app to extend with connected capabilities.                                                                                                         |
+| `connector` | `["thegraph", Object]` or `"thegraph"` | Accepts either a string describing the desired connector (only `"thegraph"` for now), or a tuple to also pass a configuration object to the connector. |
+| returns     | `Promise<Voting>`                      | An `Voting` instance (see below).                                                                                                                      |
 
-### voting\#onVotesForApp\(appAddress, callback\)
+It can throw the following errors:
 
-Subscribe to the list of votes in the provided Voting app.
+| Error type                                                     | Description                                                                                                                 |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| [`ErrorInvalidApp`](./errors.md#error-invalid-app)             | Either the passed value is not a valid app object, or its name is not `voting`.                                             |
+| [`ErrorInvalidConnector`](./errors.md#error-invalid-connector) | Either the connector configuration format is not valid, or the connector name is not supported.                             |
+| [`ErrorInvalidNetwork`](./errors.md#error-invalid-network)     | A subgraph couldn’t be found with the current network. Pass a `subgraphUrl` directly, or use one of the supported networks. |
 
-| Name         | Type       | Description                                  |
-| ------------ | ---------- | -------------------------------------------- |
-| `appAddress` | `String`   | Address of the Voting app.                   |
-| `callback`   | `Function` | Callback function call on every data update. |
-| returns      | `Function` | Unsubscribe function.                        |
+## Voting
 
-### voting\#castsForVote\(voteId, first, skip\)
+An object representing the Voting app, returned by `connectVoting()`. Use the following API to retrieve its data:
 
-Get the list of cast votes for a vote.
+### Voting\#votes\(filters\)
 
-| Name     | Type              | Description                            |
-| -------- | ----------------- | -------------------------------------- |
-| `voteId` | `String`          | Id of the Vote.                        |
-| `first`  | `String`          | Pagination argument.                   |
-| `skip`   | `String`          | Pagination argument.                   |
-| returns  | `Promise<Cast[]>` | Result data parsed as a list of casts. |
+Get the list of votes in the Voting app.
 
-### voting\#onCastsForVote\(appAddress, callback\)
+| Name            | Type              | Description                                   |
+| --------------- | ----------------- | --------------------------------------------- |
+| `filters`       | `Object`          | Optional object allowing to filter the votes. |
+| `filters.first` | `Number`          | Maximum number of votes. Defaults to `1000`.  |
+| `filters.skip`  | `Number`          | Skip a number of votes. Defaults to `0`.      |
+| returns         | `Promise<Vote[]>` | The list of votes.                            |
 
-Subscribe to the list of cast votes for a vote.
+This method can throw one of the following errors:
 
-| Name       | Type       | Description                                  |
-| ---------- | ---------- | -------------------------------------------- |
-| `voteId`   | `String`   | Id of the Vote.                              |
-| `callback` | `Function` | Callback function call on every data update. |
-| returns    | `Function` | Unsubscribe function.                        |
+| Error type                                                     | Description                                 |
+| -------------------------------------------------------------- | ------------------------------------------- |
+| [`ErrorUnexpectedResult`](./errors.md#error-unexpected-result) | The response seems incorrect.               |
+| [`ErrorConnection`](./errors.md#error-connection)              | The connection to the remote source failed. |
 
-## Subgraph schema
+### Voting\#onVotes\(filters, callback\)
 
-The Subgraph schema defines all of the available entities and attributes. It may be useful to gain a fuller, clearer picture of the information you can request.
+Subscribe to the list of votes in the Voting app. The callback is optional, not passing it will return a partially applied function.
 
-```yaml
-type Vote @entity {
-  id: ID!
-  orgAddress: Bytes!
-  appAddress: Bytes!
-  creator: Bytes!
-  metadata: String!
-  executed: Boolean!
-  startDate: BigInt!
-  snapshotBlock: BigInt!
-  supportRequiredPct: BigInt!
-  minAcceptQuorum: BigInt!
-  yea: BigInt!
-  nay: BigInt!
-  votingPower: BigInt!
-  script: Bytes!
-  voteNum: BigInt!
-  casts: [Cast!]!
-}
+| Name       | Type                                    | Description                                                                     |
+| ---------- | --------------------------------------- | ------------------------------------------------------------------------------- |
+| `filters`  | `Object`                                | Optional object allowing to filter the votes. See `Voting#votes()` for details. |
+| `callback` | `(error: Error, votes: Vote[]) => void` | A callback that will get called every time the result gets updated.             |
+| returns    | `{ unsubscribe: () => void }`           | Unsubscribe function.                                                           |
 
-type Cast @entity {
-  id: ID!
-  voteId: ID!
-  voteNum: BigInt!
-  voter: Bytes!
-  supports: Boolean!
-  voterStake: BigInt!
-  vote: Vote! @derivedFrom(field: "casts")
-}
-```
+The error passed to `callback` can be `null` (no error) or one of the following:
+
+| Error type                                                     | Description                                 |
+| -------------------------------------------------------------- | ------------------------------------------- |
+| [`ErrorUnexpectedResult`](./errors.md#error-unexpected-result) | The data couldn’t be fetched.               |
+| [`ErrorConnection`](./errors.md#error-connection)              | The connection to the remote source failed. |
+
+## Vote
+
+A single `Vote` object contains the following properties:
+
+| Name                 | Type      | Description                                                                                   |
+| -------------------- | --------- | --------------------------------------------------------------------------------------------- |
+| `id`                 | `String`  | Unique identifier for the vote.                                                               |
+| `creator`            | `Address` | Address of the vote creator.                                                                  |
+| `metadata`           | `String`  | An arbitrary string that can be used to describe the vote.                                    |
+| `executed`           | `Boolean` | Whether the vote has been executed.                                                           |
+| `executedAt`         | `String`  | Block timestamp for the vote execution. .                                                     |
+| `startDate`          | `String`  | The start date. Expressed in Unix time (seconds).                                             |
+| `snapshotBlock`      | `String`  | Number of the block before the one in which the vote was created.                             |
+| `supportRequiredPct` | `String`  | Percentage of positive votes required, compared to the negatives votes, for the vote to pass. |
+| `minAcceptQuorum`    | `String`  | Percentage of positive votes required, compared to the total, for the vote to pass.           |
+| `yea`                | `String`  | Total amount of tokens casted to a positive vote.                                             |
+| `nay`                | `String`  | Total amount of tokens casted to a negative vote.                                             |
+| `votingPower`        | `String`  | Amount of tokens available at the block `snapshotBlock`.                                      |
+| `script`             | `String`  | EVM call script to be executed on vote approval.                                              |
+
+And the following methods:
+
+### Vote\#casts\(filters\)
+
+Get the list of casted votes.
+
+| Name            | Type              | Description                                   |
+| --------------- | ----------------- | --------------------------------------------- |
+| `filters`       | `Object`          | Optional object allowing to filter the votes. |
+| `filters.first` | `Number`          | Maximum number of votes. Defaults to `1000`.  |
+| `filters.skip`  | `Number`          | Skip a number of votes. Defaults to `0`.      |
+| returns         | `Promise<Cast[]>` | The list of casted votes.                     |
+
+This method can throw one of the following errors:
+
+| Error type                                                     | Description                                 |
+| -------------------------------------------------------------- | ------------------------------------------- |
+| [`ErrorUnexpectedResult`](./errors.md#error-unexpected-result) | The response seems incorrect.               |
+| [`ErrorConnection`](./errors.md#error-connection)              | The connection to the remote source failed. |
+
+### Vote\#onCasts\(filters, callback\)
+
+Subscribe to the list of casted votes. The callback is optional, not passing it will return a partially applied function.
+
+| Name       | Type                                    | Description                                                                   |
+| ---------- | --------------------------------------- | ----------------------------------------------------------------------------- |
+| `filters`  | `Object`                                | Optional object allowing to filter the votes. See `Vote#casts()` for details. |
+| `callback` | `(error: Error, votes: Vote[]) => void` | A callback that will get called every time the result gets updated.           |
+| returns    | `{ unsubscribe: () => void }`           | Unsubscribe function.                                                         |
+
+The error passed to `callback` can be `null` (no error) or one of the following:
+
+| Error type                                                     | Description                                 |
+| -------------------------------------------------------------- | ------------------------------------------- |
+| [`ErrorUnexpectedResult`](./errors.md#error-unexpected-result) | The data couldn’t be fetched.               |
+| [`ErrorConnection`](./errors.md#error-connection)              | The connection to the remote source failed. |
+
+## Cast
+
+Represents a casted vote. This object contains the following properties:
+
+| Name        | Type     | Description                            |
+| ----------- | -------- | -------------------------------------- |
+| `id`        | `String` | Unique identifier for the casted vote. |
+| `vote`      | `String` | The casted `Vote` object.              |
+| `voter`     | `String` | The address that casted the vote.      |
+| `supports`  | `String` | Whether or not the vote is positive.   |
+| `stake`     | `String` | Voter stake for the casted vote.       |
+| `createdAt` | `String` | Block timestamp for the casted vote.   |

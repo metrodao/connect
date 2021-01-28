@@ -1,11 +1,24 @@
 import {
   App,
+  ConnectionContext,
+  ErrorInvalidNetwork,
+  ErrorNotFound,
+  ErrorUnexpectedResult,
   IOrganizationConnector,
+  Organization,
   Permission,
   Repo,
   Role,
+  toNetwork,
 } from '@aragon/connect-core'
-import { AppFilters, Network, SubscriptionHandler } from '@aragon/connect-types'
+import {
+  Address,
+  AppFilters,
+  Network,
+  Networkish,
+  SubscriptionHandler,
+  SubscriptionCallback,
+} from '@aragon/connect-types'
 import * as queries from './queries'
 import GraphQLWrapper from './core/GraphQLWrapper'
 import {
@@ -17,8 +30,9 @@ import {
 } from './parsers'
 
 export type ConnectorTheGraphConfig = {
-  network: Network
+  network: Networkish
   orgSubgraphUrl?: string
+  pollInterval?: number
   verbose?: boolean
 }
 
@@ -39,7 +53,7 @@ function appFiltersToQueryFilter(appFilters: AppFilters) {
   const queryFilter = {} as any
 
   if (appFilters.name) {
-    queryFilter.repoName_in = appFilters.name.map(name =>
+    queryFilter.repoName_in = appFilters.name.map((name: string) =>
       name.replace(/\.aragonpm\.eth$/, '')
     )
   }
@@ -51,129 +65,236 @@ function appFiltersToQueryFilter(appFilters: AppFilters) {
   return queryFilter
 }
 
-export default class ConnectorTheGraph implements IOrganizationConnector {
+class ConnectorTheGraph implements IOrganizationConnector {
   #gql: GraphQLWrapper
+  connection?: ConnectionContext
+  readonly config: ConnectorTheGraphConfig
   readonly name = 'thegraph'
   readonly network: Network
 
   constructor(config: ConnectorTheGraphConfig) {
+    this.config = config
+    this.network = toNetwork(config.network)
+
     const orgSubgraphUrl =
-      config.orgSubgraphUrl || getOrgSubgraphUrl(config.network)
+      config.orgSubgraphUrl || getOrgSubgraphUrl(this.network)
 
     if (!orgSubgraphUrl) {
-      throw new Error(
-        `The chainId ${config.network.chainId} is not supported by the TheGraph connector.`
+      throw new ErrorInvalidNetwork(
+        `The chainId ${this.network.chainId} is not supported by the TheGraph connector.`
       )
     }
 
-    this.#gql = new GraphQLWrapper(orgSubgraphUrl, config.verbose)
-    this.network = config.network
+    this.#gql = new GraphQLWrapper(orgSubgraphUrl, {
+      pollInterval: config.pollInterval,
+      verbose: config.verbose,
+    })
   }
 
-  async connect() {}
+  async connect(connection: ConnectionContext) {
+    this.connection = connection
+  }
 
   async disconnect() {
     this.#gql.close()
+    delete this.connection
   }
 
-  async rolesForAddress(appAddress: string): Promise<Role[]> {
-    return this.#gql.performQueryWithParser(
-      queries.ROLE_BY_APP_ADDRESS('query'),
-      { appAddress: appAddress.toLowerCase() },
-      parseRoles
-    )
+  async rolesForAddress(
+    organization: Organization,
+    appAddress: Address
+  ): Promise<Role[]> {
+    try {
+      return this.#gql.performQueryWithParser<Role[]>(
+        queries.ROLE_BY_APP_ADDRESS('query'),
+        { appAddress: appAddress.toLowerCase() },
+        async (result) => parseRoles(result, organization)
+      )
+    } catch (err) {
+      throw new ErrorUnexpectedResult(
+        'Unexpected result when fetching the roles.'
+      )
+    }
   }
 
-  async permissionsForOrg(orgAddress: string): Promise<Permission[]> {
-    return this.#gql.performQueryWithParser(
-      queries.ORGANIZATION_PERMISSIONS('query'),
-      { orgAddress: orgAddress.toLowerCase() },
-      parsePermissions
-    )
+  async permissionsForOrg(organization: Organization): Promise<Permission[]> {
+    try {
+      return this.#gql.performQueryWithParser<Permission[]>(
+        queries.ORGANIZATION_PERMISSIONS('query'),
+        { orgAddress: organization.address.toLowerCase() },
+        (result) => parsePermissions(result, organization)
+      )
+    } catch (err) {
+      throw new ErrorUnexpectedResult(
+        'Unexpected result when fetching the permissions.'
+      )
+    }
   }
 
   onPermissionsForOrg(
-    orgAddress: string,
-    callback: Function
+    organization: Organization,
+    callback: SubscriptionCallback<Permission[]>
   ): SubscriptionHandler {
-    return this.#gql.subscribeToQueryWithParser(
+    return this.#gql.subscribeToQueryWithParser<Permission[]>(
       queries.ORGANIZATION_PERMISSIONS('subscription'),
-      { orgAddress: orgAddress.toLowerCase() },
+      { orgAddress: organization.address.toLowerCase() },
       callback,
-      parsePermissions
+      async (result) => {
+        try {
+          return await parsePermissions(result, organization)
+        } catch (err) {
+          throw new ErrorUnexpectedResult(
+            'Unexpected result when fetching the permissions.'
+          )
+        }
+      }
     )
   }
 
-  async appByAddress(appAddress: string): Promise<App> {
-    return this.#gql.performQueryWithParser(
-      queries.APP_BY_ADDRESS('query'),
-      { appAddress: appAddress.toLowerCase() },
-      parseApp
-    )
+  async appByAddress(
+    organization: Organization,
+    appAddress: Address
+  ): Promise<App> {
+    try {
+      return this.#gql.performQueryWithParser<App>(
+        queries.APP_BY_ADDRESS('query'),
+        { appAddress: appAddress.toLowerCase() },
+        (result) => parseApp(result, organization)
+      )
+    } catch (err) {
+      if (err instanceof ErrorNotFound) {
+        throw new ErrorNotFound('No app found with the current filters.')
+      }
+      throw new ErrorUnexpectedResult(
+        'Unexpected result when fetching the app.'
+      )
+    }
   }
 
-  async appForOrg(orgAddress: string, filters: AppFilters): Promise<App> {
-    const apps = await this.#gql.performQueryWithParser<App[]>(
-      queries.ORGANIZATION_APPS('query'),
+  async appForOrg(
+    organization: Organization,
+    filters: AppFilters
+  ): Promise<App> {
+    try {
+      const apps = await this.#gql.performQueryWithParser<App[]>(
+        queries.ORGANIZATION_APPS('query'),
+        {
+          appFilter: appFiltersToQueryFilter(filters),
+          first: 1,
+          orgAddress: organization.address.toLowerCase(),
+        },
+        async (result) => parseApps(result, organization)
+      )
+      return apps[0]
+    } catch (err) {
+      if (err instanceof ErrorNotFound) {
+        throw new ErrorNotFound('No app found with the current filters.')
+      }
+      throw new ErrorUnexpectedResult(
+        'Unexpected result when fetching the app.'
+      )
+    }
+  }
+
+  onAppForOrg(
+    organization: Organization,
+    filters: AppFilters,
+    callback: SubscriptionCallback<App>
+  ): SubscriptionHandler {
+    return this.#gql.subscribeToQueryWithParser<App>(
+      queries.ORGANIZATION_APPS('subscription'),
       {
         appFilter: appFiltersToQueryFilter(filters),
         first: 1,
-        orgAddress: orgAddress.toLowerCase(),
+        orgAddress: organization.address.toLowerCase(),
       },
-      parseApps
+      callback,
+      async (result) => {
+        try {
+          const apps = await parseApps(result, organization)
+          if (!apps[0]) {
+            throw new ErrorNotFound()
+          }
+          return apps[0]
+        } catch (err) {
+          if (err instanceof ErrorNotFound) {
+            throw new ErrorNotFound('No app found with the current filters.')
+          }
+          throw new ErrorUnexpectedResult(
+            'Unexpected result when fetching the app.'
+          )
+        }
+      }
     )
-    return apps[0]
   }
 
-  async appsForOrg(orgAddress: string, filters: AppFilters): Promise<App[]> {
+  async appsForOrg(
+    organization: Organization,
+    filters: AppFilters
+  ): Promise<App[]> {
     return this.#gql.performQueryWithParser<App[]>(
       queries.ORGANIZATION_APPS('query'),
       {
         appFilter: appFiltersToQueryFilter(filters),
-        orgAddress: orgAddress.toLowerCase(),
+        orgAddress: organization.address.toLowerCase(),
       },
-      parseApps
-    )
-  }
-
-  onAppForOrg(
-    orgAddress: string,
-    filters: AppFilters,
-    callback: Function
-  ): SubscriptionHandler {
-    return this.#gql.subscribeToQueryWithParser(
-      queries.ORGANIZATION_APPS('subscription'),
-      {
-        appFilter: appFiltersToQueryFilter(filters),
-        first: 1,
-        orgAddress: orgAddress.toLowerCase(),
-      },
-      (apps: App[]) => callback(apps[0]),
-      parseApps
+      async (result) => {
+        try {
+          return await parseApps(result, organization)
+        } catch (err) {
+          throw new ErrorUnexpectedResult(
+            'Unexpected result when fetching the apps.'
+          )
+        }
+      }
     )
   }
 
   onAppsForOrg(
-    orgAddress: string,
+    organization: Organization,
     filters: AppFilters,
-    callback: Function
+    callback: SubscriptionCallback<App[]>
   ): SubscriptionHandler {
-    return this.#gql.subscribeToQueryWithParser(
+    return this.#gql.subscribeToQueryWithParser<App[]>(
       queries.ORGANIZATION_APPS('subscription'),
       {
         appFilter: appFiltersToQueryFilter(filters),
-        orgAddress: orgAddress.toLowerCase(),
+        orgAddress: organization.address.toLowerCase(),
       },
       callback,
-      parseApps
+      async (result) => {
+        try {
+          return await parseApps(result, organization)
+        } catch (err) {
+          throw new ErrorUnexpectedResult(
+            'Unexpected result when fetching the apps.'
+          )
+        }
+      }
     )
   }
 
-  async repoForApp(appAddress: string): Promise<Repo> {
-    return this.#gql.performQueryWithParser(
+  async repoForApp(
+    organization: Organization,
+    appAddress: Address
+  ): Promise<Repo> {
+    return this.#gql.performQueryWithParser<Repo>(
       queries.REPO_BY_APP_ADDRESS('query'),
       { appAddress: appAddress.toLowerCase() },
-      parseRepo
+      async (result) => {
+        try {
+          return await parseRepo(result, organization)
+        } catch (err) {
+          if (err instanceof ErrorNotFound) {
+            throw new ErrorNotFound('The app repo wasn’t found.')
+          }
+          throw new ErrorUnexpectedResult(
+            'Unexpected result when fetching the app repo.'
+          )
+        }
+      }
     )
   }
 }
+
+export default ConnectorTheGraph

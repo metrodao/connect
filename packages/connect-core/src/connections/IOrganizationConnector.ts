@@ -1,5 +1,12 @@
-import { AppFilters, Network, SubscriptionHandler } from '@aragon/connect-types'
+import {
+  AppFilters,
+  Network,
+  SubscriptionCallback,
+  SubscriptionHandler,
+} from '@aragon/connect-types'
+import { ConnectionContext } from '../types'
 import App from '../entities/App'
+import Organization from '../entities/Organization'
 import Permission from '../entities/Permission'
 import Repo from '../entities/Repo'
 import Role from '../entities/Role'
@@ -7,27 +14,37 @@ import Role from '../entities/Role'
 export default interface IOrganizationConnector {
   readonly name: string
   readonly network: Network
-  appByAddress(appAddress: string): Promise<App>
-  appForOrg(orgAddress: string, filters?: AppFilters): Promise<App>
-  appsForOrg(orgAddress: string, filters?: AppFilters): Promise<App[]>
-  chainId?: number
-  connect?(): Promise<void>
+  readonly config: { [key: string]: any }
+
+  connect?(connection: ConnectionContext): Promise<void>
   disconnect?(): Promise<void>
-  onAppsForOrg(
-    orgAddress: string,
-    filters: AppFilters,
-    callback: Function
-  ): SubscriptionHandler
+
+  appByAddress(organization: Organization, appAddress: string): Promise<App>
+
+  appForOrg(organization: Organization, filters?: AppFilters): Promise<App>
   onAppForOrg(
-    orgAddress: string,
+    organization: Organization,
     filters: AppFilters,
-    callback: Function
+    callback: SubscriptionCallback<App>
   ): SubscriptionHandler
+
+  appsForOrg(organization: Organization, filters?: AppFilters): Promise<App[]>
+  onAppsForOrg(
+    organization: Organization,
+    filters: AppFilters,
+    callback: SubscriptionCallback<App[]>
+  ): SubscriptionHandler
+
+  permissionsForOrg(organization: Organization): Promise<Permission[]>
   onPermissionsForOrg(
-    orgAddress: string,
-    callback: Function
+    organization: Organization,
+    callback: SubscriptionCallback<Permission[]>
   ): SubscriptionHandler
-  permissionsForOrg(orgAddress: string): Promise<Permission[]>
-  repoForApp(appAddress: string): Promise<Repo>
-  rolesForAddress(appAddress: string): Promise<Role[]>
+
+  repoForApp(organization: Organization, appAddress: string): Promise<Repo>
+
+  rolesForAddress(
+    organization: Organization,
+    appAddress: string
+  ): Promise<Role[]>
 }

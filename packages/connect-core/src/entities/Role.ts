@@ -1,20 +1,9 @@
-import CoreEntity from './CoreEntity'
-import Permission, { PermissionData } from './Permission'
-import IOrganizationConnector from '../connections/IOrganizationConnector'
-import { AragonArtifact, Metadata } from '../types'
 import { resolveArtifact } from '../utils/metadata'
+import { AragonArtifact, Metadata, RoleData } from '../types'
+import Organization from './Organization'
+import Permission from './Permission'
 
-export interface RoleData {
-  appAddress: string
-  appId: string
-  artifact?: string | null
-  contentUri?: string | null
-  hash: string
-  manager?: string
-  grantees?: PermissionData[] | null
-}
-
-export default class Role extends CoreEntity {
+export default class Role {
   readonly appAddress!: string
   readonly appId!: string
   readonly description?: string
@@ -24,36 +13,26 @@ export default class Role extends CoreEntity {
   readonly manager?: string
   readonly name?: string
 
-  constructor(
-    data: RoleData,
-    metadata: Metadata,
-    connector: IOrganizationConnector
-  ) {
-    super(connector)
-
+  constructor(data: RoleData, metadata: Metadata, organization: Organization) {
     const { roles } = metadata[0] as AragonArtifact
-
-    const role = roles?.find(role => role.bytes === data.hash)
+    const role = roles?.find((role) => role.bytes === data.hash)
 
     this.appAddress = data.appAddress
     this.description = role?.name
     this.hash = data.hash
-    this.params = role?.params
-    this.permissions = data.grantees?.map(
-      grantee => new Permission(grantee, this._connector)
-    )
     this.manager = data.manager
     this.name = role?.id
+    this.params = role?.params
+    this.permissions = data.grantees?.map(
+      (grantee) => new Permission(grantee, organization)
+    )
   }
 
   static async create(
     data: RoleData,
-    connector: IOrganizationConnector
+    organization: Organization
   ): Promise<Role> {
-    const artifact = await resolveArtifact(data)
-
-    const metadata: Metadata = [artifact]
-
-    return new Role(data, metadata, connector)
+    const artifact = await resolveArtifact(organization.connection.ipfs, data)
+    return new Role(data, [artifact], organization)
   }
 }

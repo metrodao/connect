@@ -1,11 +1,9 @@
-import { ethers } from 'ethers'
+import { utils as ethersUtils } from 'ethers'
+import { ErrorInvalid } from '../errors'
+
+import { CallScriptAction } from '../types'
 
 export const CALLSCRIPT_ID = '0x00000001'
-
-interface CallScriptAction {
-  to: string
-  data: string
-}
 
 interface Segment {
   segment: CallScriptAction
@@ -54,7 +52,7 @@ export function isCallScript(script: string): boolean {
  */
 export function decodeCallScript(script: string): CallScriptAction[] {
   if (!isCallScript(script)) {
-    throw new Error(`Not a call script: ${script}`)
+    throw new ErrorInvalid(`Not a call script: ${script}`)
   }
 
   let scriptData = script.substring(10)
@@ -90,8 +88,8 @@ export function decodeCallScript(script: string): CallScriptAction[] {
  */
 export function encodeCallScript(actions: CallScriptAction[]): string {
   return actions.reduce((script: string, { to, data }) => {
-    const address = ethers.utils.defaultAbiCoder.encode(['address'], [to])
-    const dataLength = ethers.utils.defaultAbiCoder.encode(
+    const address = ethersUtils.defaultAbiCoder.encode(['address'], [to])
+    const dataLength = ethersUtils.defaultAbiCoder.encode(
       ['uint256'],
       [(data.length - 2) / 2]
     )

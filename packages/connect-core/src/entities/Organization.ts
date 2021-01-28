@@ -1,17 +1,24 @@
-import { ethers } from 'ethers'
 import {
   Address,
   AppFilters,
   AppFiltersParam,
-  Network,
-  SubscriptionHandler,
+  SubscriptionCallback,
+  SubscriptionResult,
 } from '@aragon/connect-types'
-import TransactionIntent from '../transactions/TransactionIntent'
-import { XDAI_WSS_ENDPOINT } from '../params'
-import IOrganizationConnector from '../connections/IOrganizationConnector'
-import { toArrayEntry } from '../utils/misc'
+
+import ForwardingPathDescription, {
+  decodeForwardingPath,
+  describePath,
+  describeTransaction,
+} from '../utils/descriptor/index'
+import { ConnectionContext, PostProcessDescription } from '../types'
+import { ErrorInvalidLocation } from '../errors'
+import { isAddress } from '../utils/address'
+import { normalizeFiltersAndCallback, toArrayEntry } from '../utils/misc'
+import { subscription } from '../utils/subscriptions'
 import App from './App'
 import Permission from './Permission'
+import Transaction from './Transaction'
 
 // TODO
 // Organization#addApp(repoName, options)
@@ -21,8 +28,8 @@ import Permission from './Permission'
 // Organization#roleManager(appAddress, roleId)
 // Organization#setRoleManager(address, appAddress, roleId)
 
-type OnAppCallback = (app: App) => void
-type OnAppsCallback = (apps: App[]) => void
+type OnAppCallback = SubscriptionCallback<App | null>
+type OnAppsCallback = SubscriptionCallback<App[]>
 
 function normalizeAppFilters(filters?: AppFiltersParam): AppFilters {
   if (!filters) {
@@ -30,19 +37,21 @@ function normalizeAppFilters(filters?: AppFiltersParam): AppFilters {
   }
 
   if (typeof filters === 'string') {
-    return filters.startsWith('0x')
-      ? { address: [filters] }
-      : { name: [filters] }
+    return isAddress(filters) ? { address: [filters] } : { name: [filters] }
   }
 
   if (Array.isArray(filters)) {
-    return filters[0]?.startsWith('0x')
+    return isAddress(filters[0] ?? '')
       ? { address: filters }
       : { name: filters }
   }
 
   if (filters.address) {
-    return { address: toArrayEntry(filters.address) }
+    const addresses = toArrayEntry(filters.address)
+    if (!addresses.every(isAddress)) {
+      throw new ErrorInvalidLocation()
+    }
+    return { address: addresses }
   }
 
   if (filters.name) {
@@ -53,147 +62,127 @@ function normalizeAppFilters(filters?: AppFiltersParam): AppFilters {
 }
 
 export default class Organization {
-  readonly location: string
-  #address?: string
-  #provider: ethers.providers.Provider
-  #connected: boolean
+  readonly connection: ConnectionContext
 
-  private _connector: IOrganizationConnector
-
-  constructor(
-    location: string,
-    connector: IOrganizationConnector,
-    provider: any,
-    network: Network
-  ) {
-    this.location = location
-
-    const getEthersProvider = (): ethers.providers.Provider => {
-      try {
-        return new ethers.providers.Web3Provider(provider, network)
-      } catch (e) {
-        return provider
-      }
-    }
-
-    this.#provider = provider
-      ? getEthersProvider()
-      : network.chainId === 100
-      ? new ethers.providers.WebSocketProvider(XDAI_WSS_ENDPOINT, network)
-      : ethers.getDefaultProvider(network)
-
-    this._connector = connector
-    this.#connected = false
+  constructor(connection: ConnectionContext) {
+    this.connection = connection
   }
 
-  async _connect() {
-    this.#address = ethers.utils.isAddress(this.location)
-      ? this.location
-      : await this.#provider.resolveName(this.location)
-
-    if (!ethers.utils.isAddress(this.#address || '')) {
-      throw new Error('Please provide a valid address or ENS domain.')
-    }
-
-    this.#connected = true
-    return true
+  get location() {
+    return this.connection.orgLocation
   }
 
-  async disconnect() {
-    this._connector.disconnect?.()
+  get address(): Address {
+    return this.connection.orgAddress
   }
 
-  private checkConnected() {
-    if (!this.#connected) {
-      throw new Error(
-        'Please call ._connect() before using Organization and its methods.'
-      )
-    }
+  get _connection(): ConnectionContext {
+    return this.connection
   }
 
-  get address(): string {
-    this.checkConnected()
-    return this.#address || '' // The || '' should never happen but TypeScript requires it.
-  }
+  //////// ACCOUNT /////////
 
-  get provider(): ethers.providers.Provider {
-    this.checkConnected()
-    return this.#provider
+  actAss(sender: Address): void {
+    this.connection.actAs = sender
   }
 
   ///////// APPS ///////////
 
   async app(filters?: AppFiltersParam): Promise<App> {
-    this.checkConnected()
-    return this._connector.appForOrg(this.address, normalizeAppFilters(filters))
-  }
-
-  async apps(filters?: AppFiltersParam): Promise<App[]> {
-    this.checkConnected()
-    return this._connector.appsForOrg(
-      this.address,
+    return this.connection.orgConnector.appForOrg(
+      this,
       normalizeAppFilters(filters)
     )
   }
 
   onApp(
-    filtersOrCallback: AppFiltersParam | OnAppCallback,
+    filtersOrCallback?: AppFiltersParam | OnAppCallback,
     callback?: OnAppCallback
-  ): SubscriptionHandler {
-    this.checkConnected()
+  ): SubscriptionResult<App> {
+    const [filters, _callback] = normalizeFiltersAndCallback<
+      OnAppCallback,
+      AppFiltersParam
+    >(filtersOrCallback, callback)
 
-    const filters = (callback ? filtersOrCallback : null) as AppFiltersParam
-    const _callback = (callback || filtersOrCallback) as OnAppCallback
+    return subscription<App>(_callback, (callback) =>
+      this.connection.orgConnector.onAppForOrg(
+        this,
+        normalizeAppFilters(filters),
+        callback
+      )
+    )
+  }
 
-    return this._connector.onAppForOrg(
-      this.address,
-      normalizeAppFilters(filters),
-      _callback
+  async apps(filters?: AppFiltersParam): Promise<App[]> {
+    return this.connection.orgConnector.appsForOrg(
+      this,
+      normalizeAppFilters(filters)
     )
   }
 
   onApps(
-    filtersOrCallback: AppFiltersParam | OnAppsCallback,
+    filtersOrCallback?: AppFiltersParam | OnAppsCallback,
     callback?: OnAppsCallback
-  ): SubscriptionHandler {
-    this.checkConnected()
+  ): SubscriptionResult<App[]> {
+    const [filters, _callback] = normalizeFiltersAndCallback<
+      OnAppsCallback,
+      AppFiltersParam
+    >(filtersOrCallback, callback)
 
-    const filters = (callback ? filtersOrCallback : null) as AppFiltersParam
-    const _callback = (callback || filtersOrCallback) as OnAppsCallback
-
-    return this._connector.onAppsForOrg(
-      this.address,
-      normalizeAppFilters(filters),
-      _callback
+    return subscription<App[]>(_callback, (callback) =>
+      this.connection.orgConnector.onAppsForOrg(
+        this,
+        normalizeAppFilters(filters),
+        callback
+      )
     )
   }
 
+  async acl(): Promise<App> {
+    return this.app('acl')
+  }
+
+  async kernel(): Promise<App> {
+    return this.app('kernel')
+  }
+
   ///////// PERMISSIONS ///////////
+
   async permissions(): Promise<Permission[]> {
-    this.checkConnected()
-    return this._connector.permissionsForOrg(this.address)
+    return this.connection.orgConnector.permissionsForOrg(this)
   }
 
-  onPermissions(callback: Function): SubscriptionHandler {
-    this.checkConnected()
-    return this._connector.onPermissionsForOrg(this.address, callback)
+  onPermissions(
+    callback?: SubscriptionCallback<Permission[]>
+  ): SubscriptionResult<Permission[]> {
+    return subscription<Permission[]>(callback, (callback) =>
+      this.connection.orgConnector.onPermissionsForOrg(this, callback)
+    )
   }
 
-  ///////// INTENTS ///////////
-  appIntent(
-    appAddress: string,
-    funcName: string,
-    funcArgs: any[]
-  ): TransactionIntent {
-    this.checkConnected()
-    return new TransactionIntent(
-      {
-        contractAddress: appAddress,
-        functionName: funcName,
-        functionArgs: funcArgs,
-      },
-      this,
-      this.#provider
+  //////// DESCRIPTIONS /////////
+
+  // Return a description of the forwarding path encoded on the evm script
+  async describeScript(script: string): Promise<ForwardingPathDescription> {
+    const installedApps = await this.apps()
+
+    const describedSteps = await describePath(
+      decodeForwardingPath(script),
+      installedApps,
+      this.connection.ethersProvider
+    )
+
+    return new ForwardingPathDescription(describedSteps, installedApps)
+  }
+
+  // Try to describe a single transaction using Radspec on the context of the organization
+  async describeTransaction(
+    transaction: Transaction
+  ): Promise<PostProcessDescription> {
+    return describeTransaction(
+      transaction,
+      await this.apps(),
+      this.connection.ethersProvider
     )
   }
 }

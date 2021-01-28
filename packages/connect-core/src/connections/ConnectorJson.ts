@@ -3,10 +3,20 @@
 /* eslint-disable @typescript-eslint/no-empty-function */
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 
-import { AppFilters, Network, SubscriptionHandler } from '@aragon/connect-types'
+import {
+  Address,
+  AppFilters,
+  Network,
+  SubscriptionCallback,
+  SubscriptionHandler,
+} from '@aragon/connect-types'
+import { ConnectionContext } from '../types'
 import IOrganizationConnector from './IOrganizationConnector'
-import { App, Repo, Role } from '..'
+import App from '../entities/App'
+import Organization from '../entities/Organization'
 import Permission from '../entities/Permission'
+import Repo from '../entities/Repo'
+import Role from '../entities/Role'
 
 export type ConnectorJsonConfig = {
   permissions: Permission[]
@@ -15,12 +25,23 @@ export type ConnectorJsonConfig = {
 
 class ConnectorJson implements IOrganizationConnector {
   #permissions: Permission[]
+  connection?: ConnectionContext
+  readonly config: ConnectorJsonConfig
   readonly name = 'json'
   readonly network: Network
 
-  constructor({ permissions, network }: ConnectorJsonConfig) {
-    this.#permissions = permissions
-    this.network = network
+  constructor(config: ConnectorJsonConfig) {
+    this.config = config
+    this.network = config.network
+    this.#permissions = config.permissions
+  }
+
+  async connect(connection: ConnectionContext) {
+    this.connection = connection
+  }
+
+  async disconnect() {
+    delete this.connection
   }
 
   async permissionsForOrg(): Promise<Permission[]> {
@@ -28,68 +49,71 @@ class ConnectorJson implements IOrganizationConnector {
   }
 
   onPermissionsForOrg(
-    orgAddress: string,
-    callback: Function
+    organization: Organization,
+    callback: SubscriptionCallback<Permission[]>
   ): SubscriptionHandler {
     return {
       unsubscribe: () => {},
     }
   }
 
-  async app(filters: AppFilters): Promise<App> {
-    return this.appByAddress('')
+  async app(organization: Organization, filters: AppFilters): Promise<App> {
+    return this.appByAddress(organization, '')
   }
 
   async apps(filters: AppFilters): Promise<App[]> {
     return []
   }
 
-  appForOrg(orgAddress: string): Promise<App> {
-    return new Promise(resolve => {
+  appForOrg(organization: Organization): Promise<App> {
+    return new Promise((resolve) => {
       resolve()
-    })
-  }
-
-  appsForOrg(orgAddress: string): Promise<App[]> {
-    return new Promise(resolve => {
-      resolve([])
     })
   }
 
   onAppForOrg(
-    orgAddress: string,
+    organization: Organization,
     filters: AppFilters,
-    callback: Function
+    callback: SubscriptionCallback<App>
   ): SubscriptionHandler {
     return {
       unsubscribe: () => {},
     }
+  }
+
+  appsForOrg(organization: Organization): Promise<App[]> {
+    return new Promise((resolve) => {
+      resolve([])
+    })
   }
 
   onAppsForOrg(
-    orgAddress: string,
+    organization: Organization,
     filters: AppFilters,
-    callback: Function
+    callback: SubscriptionCallback<App[]>
   ): SubscriptionHandler {
     return {
       unsubscribe: () => {},
     }
   }
 
-  repoForApp(appAddress: string): Promise<Repo> {
-    return new Promise(resolve => {
+  repoForApp(organization: Organization, appAddress: Address): Promise<Repo> {
+    return new Promise((resolve) => {
       resolve()
     })
   }
 
-  appByAddress(appAddress: string): Promise<App> {
-    return new Promise(resolve => {
+  appByAddress(organization: Organization, appAddress: Address): Promise<App> {
+    return new Promise((resolve) => {
       resolve()
     })
   }
 
-  rolesForAddress(appAddress: string): Promise<Role[]> {
-    return new Promise(resolve => {
+  rolesForAddress(
+    organization: Organization,
+    appAddress: Address
+  ): Promise<Role[]> {
+    return new Promise((resolve) => {
       resolve([])
     })
   }

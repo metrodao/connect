@@ -19,6 +19,7 @@
 - [Organizations](connectors/organizations.md)
 - [Tokens app](connectors/tokens-app.md)
 - [Voting app](connectors/voting-app.md)
+- [Finance app](connectors/finance-app.md)
 
 ## API Reference
 
@@ -32,3 +33,5 @@
 - [TransactionIntent](api-reference/transaction-intent.md)
 - [TransactionPath](api-reference/transaction-path.md)
 - [TransactionRequest](api-reference/transaction-request.md)
+- [Types](api-reference/types.md)
+- [Errors](api-reference/errors.md)

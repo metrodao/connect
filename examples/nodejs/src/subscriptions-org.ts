@@ -5,15 +5,23 @@ const ORG_ADDRESS = '0xd697d1f417c621a6a54d9a7fa2805596ca393222'
 
 async function main() {
   const org = (await connect(ORG_ADDRESS, 'thegraph', {
-    chainId: 4,
+    network: 4,
   })) as Organization
 
-  const subscription = org.onPermissions((permissions: Permission[]) => {
-    permissions.map(console.log)
-    console.log(
-      `\nTry creating or granting new permissions at https://rinkeby.aragon.org/#/${ORG_ADDRESS}/permissions/`
-    )
-  })
+  const subscription = org.onPermissions(
+    (error: Error | null, permissions?: Permission[]) => {
+      if (error) {
+        console.error(error)
+        return
+      }
+      for (const permission of permissions as Permission[]) {
+        console.log(permission)
+      }
+      console.log(
+        `\nTry creating or granting new permissions at https://rinkeby.aragon.org/#/${ORG_ADDRESS}/permissions/`
+      )
+    }
+  )
 
   await keepRunning()
 
@@ -23,7 +31,7 @@ async function main() {
 
 main()
   .then(() => process.exit(0))
-  .catch(err => {
+  .catch((err) => {
     console.log(`Error: `, err)
     console.log(
       '\nPlease report any problem to https://github.com/aragon/connect/issues'

@@ -1,5 +1,6 @@
 {
   "name": "@aragon/connect",
+  "version": "0.8.0-alpha.6",
   "description": "Access and interact with Aragon Organizations and their apps.",
   "keywords": [
     "ethereum",
@@ -28,12 +29,14 @@
   },
   "scripts": {
     "connect": "yarn workspace @aragon/connect",
+    "connect-agreement": "yarn workspace @aragon/connect-agreement",
     "connect-core": "yarn workspace @aragon/connect-core",
     "connect-react": "yarn workspace @aragon/connect-react",
     "connect-ethereum": "yarn workspace @aragon/connect-ethereum",
     "connect-thegraph": "yarn workspace @aragon/connect-thegraph",
-    "connect-thegraph-voting": "yarn workspace @aragon/connect-thegraph-voting",
-    "connect-thegraph-tokens": "yarn workspace @aragon/connect-thegraph-tokens",
+    "connect-finance": "yarn workspace @aragon/connect-finance",
+    "connect-voting": "yarn workspace @aragon/connect-voting",
+    "connect-tokens": "yarn workspace @aragon/connect-tokens",
     "connect-types": "yarn workspace @aragon/connect-types",
     "test": "is-ci \"test:coverage\" \"jest\"",
     "test:coverage": "jest --coverage",
@@ -43,14 +46,18 @@
     "build": "MODE=libs-only ./scripts/rebuild-packages.sh",
     "build:examples": "MODE=all ./scripts/rebuild-packages.sh",
     "status": "oao status",
-    "postinstall": "yarn build"
+    "publish-version": "./scripts/publish-version.sh",
+    "postinstall": "yarn build",
+    "precommit": "yarn precise-commits"
   },
   "devDependencies": {
     "@types/jest": "^26.0.0",
+    "husky": "^4.2.5",
     "is-ci-cli": "^2.1.1",
     "jest": "^26.0.1",
-    "oao": "^1.8.0",
+    "oao": "^2.0.0",
+    "precise-commits": "^1.0.2",
+    "prettier": "^2.0.5",
     "ts-jest": "^26.1.0"
-  },
-  "version": "0.4.2"
+  }
 }

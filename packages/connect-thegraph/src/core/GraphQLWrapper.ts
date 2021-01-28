@@ -1,96 +1,129 @@
 import fetch from 'isomorphic-unfetch'
-import ws from 'isomorphic-ws'
 import {
   Client,
-  defaultExchanges,
-  subscriptionExchange,
-  createRequest,
+  GraphQLRequest,
+  createRequest as createRequestUrql,
 } from '@urql/core'
-import { SubscriptionClient } from 'subscriptions-transport-ws'
 import { DocumentNode } from 'graphql'
 import { pipe, subscribe } from 'wonka'
-import { SubscriptionHandler } from '@aragon/connect-types'
-import { ParseFunction, QueryResult, SubscriptionOperation } from '../types'
+import { ErrorConnection, ErrorUnexpectedResult } from '@aragon/connect-core'
+import {
+  SubscriptionCallback,
+  SubscriptionHandler,
+} from '@aragon/connect-types'
+import { ParseFunction, QueryResult } from '../types'
 
-const AUTO_RECONNECT = true
-const CONNECTION_TIMEOUT = 20 * 1000
+// Average block time is about 13 seconds on the 2020-08-14
+// See https://etherscan.io/chart/blocktime
+const POLL_INTERVAL_DEFAULT = 13 * 1000
 
-function filterSubgraphUrl(url: string): [string, string] {
-  if (!/^(?:https|wss):\/\//.test(url)) {
-    throw new Error('Please provide a valid subgraph URL')
+// Make every operation type a query, until GraphQL subscriptions get added again.
+function createRequest(query: DocumentNode, args: object): GraphQLRequest {
+  if (query.definitions) {
+    query = {
+      ...query,
+      definitions: query.definitions.map((definition) => ({
+        ...definition,
+        operation: 'query',
+      })),
+    }
   }
-  return [url.replace(/^wss/, 'https'), url.replace(/^https/, 'wss')]
+  return createRequestUrql(query, args)
+}
+
+type GraphQLWrapperOptions = {
+  pollInterval?: number
+  verbose?: boolean
 }
 
 export default class GraphQLWrapper {
   #client: Client
+  #pollInterval: number
   #verbose: boolean
-  close: () => void
 
-  constructor(subgraphUrl: string, verbose = false) {
-    const [urlHttp, urlWs] = filterSubgraphUrl(subgraphUrl)
+  constructor(
+    subgraphUrl: string,
+    options: GraphQLWrapperOptions | boolean = {}
+  ) {
+    if (typeof options === 'boolean') {
+      console.warn(
+        'GraphQLWrapper: please use `new GraphQLWrapper(url, { verbose })` rather than `new GraphQLWrapper(url, verbose)`.'
+      )
+      options = { verbose: options }
+    }
+    options = options as GraphQLWrapperOptions
 
-    const subscriptionClient = new SubscriptionClient(
-      urlWs,
-      { reconnect: AUTO_RECONNECT, timeout: CONNECTION_TIMEOUT },
-      ws
-    )
+    this.#verbose = options.verbose ?? false
+    this.#pollInterval = options.pollInterval ?? POLL_INTERVAL_DEFAULT
 
-    this.#client = new Client({
-      maskTypename: true,
-      url: urlHttp,
-      fetch,
-      exchanges: [
-        ...defaultExchanges,
-        subscriptionExchange({
-          forwardSubscription: (operation: SubscriptionOperation) =>
-            subscriptionClient.request(operation),
-        }),
-      ],
-    })
+    this.#client = new Client({ maskTypename: true, url: subgraphUrl, fetch })
+  }
 
-    this.#verbose = verbose
-    this.close = () => subscriptionClient.close()
+  close(): void {
+    // Do nothing for now.
+    // Will be used when GraphQL subscriptions will be added again.
   }
 
   subscribeToQuery(
     query: DocumentNode,
     args: any = {},
-    callback: Function
+    callback: SubscriptionCallback<QueryResult>
   ): SubscriptionHandler {
     const request = createRequest(query, args)
 
     return pipe(
-      this.#client.executeSubscription(request),
+      this.#client.executeQuery(request, {
+        pollInterval: this.#pollInterval,
+        requestPolicy: 'cache-and-network',
+      }),
       subscribe((result: QueryResult) => {
         if (this.#verbose) {
           console.log(this.describeQueryResult(result))
         }
-
         if (result.error) {
-          throw new Error(
-            [
-              'Error performing subscription.',
-              `${result.error.name}: ${result.error.message}`,
-              this.describeQueryResult(result),
-            ].join('\n')
+          callback(
+            new Error(
+              'Error performing subscription.\n' +
+                `${result.error.name}: ${result.error.message} \n` +
+                this.describeQueryResult(result)
+            )
           )
+          return
         }
-
-        callback(result)
+        callback(null, result)
       })
     )
   }
 
-  subscribeToQueryWithParser(
+  subscribeToQueryWithParser<T>(
     query: DocumentNode,
     args: any = {},
-    callback: Function,
+    callback: SubscriptionCallback<T>,
     parser: ParseFunction
   ): SubscriptionHandler {
-    return this.subscribeToQuery(query, args, async (result: QueryResult) => {
-      callback(await this.parseQueryResult(parser, result))
-    })
+    return this.subscribeToQuery(
+      query,
+      args,
+      async (error: Error | null, result?: QueryResult) => {
+        try {
+          if (error || result?.error) {
+            throw new ErrorConnection(
+              result
+                ? 'Error performing subscription.\n' +
+                  `${result?.error?.name}: ${result?.error?.message}\n` +
+                  this.describeQueryResult(result)
+                : undefined
+            )
+          }
+          callback(
+            null,
+            await this.parseQueryResult<T>(parser, result as QueryResult)
+          )
+        } catch (error) {
+          callback(error)
+        }
+      }
+    )
   }
 
   async performQuery(
@@ -104,7 +137,7 @@ export default class GraphQLWrapper {
     }
 
     if (result.error) {
-      throw new Error(
+      throw new ErrorConnection(
         this.describeQueryResultError(result) + this.describeQueryResult(result)
       )
     }
@@ -118,18 +151,17 @@ export default class GraphQLWrapper {
     parser: ParseFunction
   ): Promise<T> {
     const result = await this.performQuery(query, args)
-    return this.parseQueryResult(parser, result)
+    return this.parseQueryResult<T>(parser, result)
   }
 
-  async parseQueryResult(
+  async parseQueryResult<T>(
     parser: ParseFunction,
     result: QueryResult
-  ): Promise<any> {
-    try {
-      return parser(result, this)
-    } catch (error) {
-      throw new Error(error.message + '\n\n' + this.describeQueryResult(result))
+  ): Promise<T> {
+    if (result.error) {
+      throw new ErrorUnexpectedResult()
     }
+    return parser(result)
   }
 
   private describeQueryResultError(result: QueryResult): string {
@@ -145,11 +177,11 @@ export default class GraphQLWrapper {
     const argsStr = JSON.stringify(result.operation.variables, null, 2)
     const subgraphUrl = result.operation.context.url
 
-    return [
-      `Subgraph: ${subgraphUrl}`,
-      `Arguments: ${argsStr}`,
-      `Query: ${queryStr}`,
-      `Returned data: ${dataStr}`,
-    ].join('\n\n')
+    return (
+      `Subgraph: ${subgraphUrl}\n\n` +
+      `Arguments: ${argsStr}\n\n` +
+      `Query: ${queryStr}\n\n` +
+      `Returned data: ${dataStr}\n\n`
+    )
   }
 }

@@ -1,119 +1,44 @@
-import { ethers } from 'ethers'
+import { Organization, resolveAddress, toNetwork } from '@aragon/connect-core'
+import { ConnectorDeclaration, ConnectOptions } from './types'
 import {
-  ConnectorJson,
-  ConnectorJsonConfig,
-  IOrganizationConnector,
-  Organization,
-} from '@aragon/connect-core'
-import ConnectorEthereum, {
-  ConnectorEthereumConfig,
-} from '@aragon/connect-ethereum'
-import ConnectorTheGraph, {
-  ConnectorTheGraphConfig,
-} from '@aragon/connect-thegraph'
-import { Network } from '@aragon/connect-types'
-
-export type ConnectOptionsResolveIpfs = (
-  ipfsIdentifier: string,
-  path: string
-) => string
-
-export type ConnectOptions = {
-  readProvider?: ethers.providers.Provider
-  chainId?: number
-  ipfs?: ConnectOptionsResolveIpfs
-}
-
-export type ConnectorDeclaration =
-  | IOrganizationConnector
-  | [string, object | undefined]
-  | string
-
-function normalizeConnectorConfig(
-  connector: ConnectorDeclaration
-): [string, any] | null {
-  if (Array.isArray(connector)) {
-    return [connector[0], connector[1] || {}]
-  }
-  if (typeof connector === 'string') {
-    return [connector, {}]
-  }
-  return null
-}
-
-function getConnector(
-  connector: ConnectorDeclaration,
-  network: Network
-): IOrganizationConnector {
-  const normalizedConfig = normalizeConnectorConfig(connector)
-
-  if (normalizedConfig === null) {
-    return connector as IOrganizationConnector
-  }
-
-  const [name, config] = normalizedConfig
-
-  if (!config.network) {
-    config.network = network
-  }
-
-  if (name === 'json') {
-    return new ConnectorJson(config as ConnectorJsonConfig)
-  }
-
-  if (name === 'thegraph') {
-    return new ConnectorTheGraph(config as ConnectorTheGraphConfig)
-  }
-
-  if (name === 'ethereum') {
-    return new ConnectorEthereum(config as ConnectorEthereumConfig)
-  }
-
-  throw new Error(`Unsupported connector name: ${name}`)
-}
-
-function getNetwork(chainId?: number): Network {
-  if (chainId === 1 || !chainId) {
-    return {
-      chainId: 1,
-      name: 'homestead',
-      ensAddress: '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e',
-    }
-  }
-  if (chainId === 4) {
-    return {
-      chainId: 4,
-      name: 'rinkeby',
-      ensAddress: '0x98df287b6c145399aaa709692c8d308357bc085d',
-    }
-  }
-  if (chainId === 100) {
-    return {
-      chainId: 100,
-      name: 'xdai',
-      ensAddress: '0xaafca6b0c89521752e559650206d7c925fd0e530',
-    }
-  }
-  throw new Error(`Invalid chainId provided: ${chainId}`)
-}
+  normalizeConnector,
+  normalizeEthersProvider,
+  normalizeIpfsResolver,
+} from './normalizers'
 
 async function connect(
   location: string,
   connector: ConnectorDeclaration,
-  { readProvider, chainId }: ConnectOptions = {}
+  {
+    actAs,
+    ethereum: ethereumProvider,
+    ipfs,
+    network,
+    verbose,
+  }: ConnectOptions = {}
 ): Promise<Organization> {
-  const network = getNetwork(chainId)
-  if (!network) {
-    throw new Error(`Invalid chainId provided: ${chainId}`)
+  const _network = toNetwork(network ?? 'ethereum')
+
+  const ethersProvider = normalizeEthersProvider(ethereumProvider, _network)
+  const orgConnector = normalizeConnector(connector, _network)
+
+  const orgAddress = await resolveAddress(ethersProvider, location)
+
+  const connectionContext = {
+    actAs: actAs || null,
+    ethereumProvider: ethereumProvider || null,
+    ethersProvider,
+    ipfs: normalizeIpfsResolver(ipfs),
+    network: _network,
+    orgAddress,
+    orgConnector,
+    orgLocation: location,
+    verbose: verbose ?? false,
   }
 
-  const _connector = getConnector(connector, network)
-  await _connector.connect?.()
+  await orgConnector.connect?.(connectionContext)
 
-  const org = new Organization(location, _connector, readProvider, network)
-  await org._connect()
-
-  return org
+  return new Organization(connectionContext)
 }
 
 export default connect

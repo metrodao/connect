@@ -2,42 +2,11 @@
 
 This is the main connector of the Aragon Connect library. It is responsible for parsing the organization’s data.
 
-Currently a single flavor of this connector is available and comes built into the core library, connecting to a Subgraph data source,. We have plans to expand to other flavors, like an Ethereum connector that reduces the state directly from an Ethereum node’s JSON-RPC API, or a SQL connector that fetches data from a database, etc.
+Currently a single flavor of this connector is available and comes built into the core library, connecting to a Subgraph (The Graph) data source,. We have plans to expand to other flavors, like an Ethereum connector that reduces the state directly from an Ethereum node’s JSON-RPC API, or a SQL connector that fetches data from a database, etc.
 
 ## Connector Interface
 
-The connector must implement the following interface to be compatible with Aragon Connect:
-
-```typescript
-export type AppFilters = {
-  address?: string[]
-  name?: string[]
-}
-
-export interface ConnectorInterface {
-  appByAddress(appAddress: string): Promise<App>
-  appForOrg(orgAddress: string, filters?: AppFilters): Promise<App>
-  appsForOrg(orgAddress: string, filters?: AppFilters): Promise<App[]>
-  chainId?: number
-  onAppsForOrg(
-    orgAddress: string,
-    filters: AppFilters,
-    callback: Function
-  ): { unsubscribe: () => void }
-  onAppForOrg(
-    orgAddress: string,
-    filters: AppFilters,
-    callback: Function
-  ): { unsubscribe: () => void }
-  onPermissionsForOrg(
-    orgAddress: string,
-    callback: Function
-  ): { unsubscribe: () => void }
-  permissionsForOrg(orgAddress: string): Promise<Permission[]>
-  repoForApp(appAddress: string): Promise<Repo>
-  rolesForAddress(appAddress: string): Promise<Role[]>
-}
-```
+An organization connector must implement the [IOrganizationConnector](https://github.com/aragon/connect/blob/master/packages/connect-core/src/connections/IOrganizationConnector.ts) interface to be compatible with Aragon Connect.
 
 ## The Graph Connector
 
@@ -71,35 +40,35 @@ Perform a GraphQL query.
 
 Perform a GraphQL query and parse the result.
 
-| Name     | Type           | Description                                       |
-| -------- | -------------- | ------------------------------------------------- |
-| `query`  | `DocumentNode` | GraphQL query parsed in the standard GraphQL AST. |
-| `args`   | `any = {}`     | Arguments to pass to fields in the query.         |
-| `parser` | `Function`     | Parser function.                                  |
-| returns  | `Promise<any>` | Query result data parsed.                         |
+| Name     | Type                 | Description                                       |
+| -------- | -------------------- | ------------------------------------------------- |
+| `query`  | `DocumentNode`       | GraphQL query parsed in the standard GraphQL AST. |
+| `args`   | `any = {}`           | Arguments to pass to fields in the query.         |
+| `parser` | `(data: any) => any` | Parser function.                                  |
+| returns  | `Promise<any>`       | Query result data parsed.                         |
 
 **GraphQLWrapper\#subscribeToQuery\(query, args, callback\)**
 
 Create a GraphQL subscription.
 
-| Name       | Type                          | Description                                       |
-| ---------- | ----------------------------- | ------------------------------------------------- |
-| `query`    | `DocumentNode`                | GraphQL query parsed in the standard GraphQL AST. |
-| `args`     | `any = {}`                    | Arguments to pass to fields in the query.         |
-| `callback` | `Function`                    | Callback function call on every data update.      |
-| returns    | `{ unsubscribe: () => void }` | Subscription handler.                             |
+| Name       | Type                                          | Description                                       |
+| ---------- | --------------------------------------------- | ------------------------------------------------- |
+| `query`    | `DocumentNode`                                | GraphQL query parsed in the standard GraphQL AST. |
+| `args`     | `any = {}`                                    | Arguments to pass to fields in the query.         |
+| `callback` | `(error: Error, result: QueryResult) => void` | Callback function call on every data update.      |
+| returns    | `{ unsubscribe: () => void }`                 | Subscription handler.                             |
 
 **GraphQLWrapper\#subscribeToQueryWithParser\(query, args, callback, parser\)**
 
 Create a GraphQL subscription and parse the emitted results.
 
-| Name       | Type                          | Description                                       |
-| ---------- | ----------------------------- | ------------------------------------------------- |
-| `query`    | `DocumentNode`                | GraphQL query parsed in the standard GraphQL AST. |
-| `args`     | `any = {}`                    | Arguments to pass to fields in the query.         |
-| `callback` | `Function`                    | Callback function call on every data update.      |
-| `parser`   | `Function`                    | Parser function.                                  |
-| returns    | `{ unsubscribe: () => void }` | Subscription handler.                             |
+| Name       | Type                                  | Description                                       |
+| ---------- | ------------------------------------- | ------------------------------------------------- |
+| `query`    | `DocumentNode`                        | GraphQL query parsed in the standard GraphQL AST. |
+| `args`     | `any = {}`                            | Arguments to pass to fields in the query.         |
+| `callback` | `(error: Error, result: any) => void` | Callback function call on every data update.      |
+| `parser`   | `(data: any) => any`                  | Parser function.                                  |
+| returns    | `{ unsubscribe: () => void }`         | Subscription handler.                             |
 
 ### Subgraph Schema
 

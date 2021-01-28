@@ -1,38 +1,30 @@
-import Repo from './Repo'
-import Role from './Role'
-import CoreEntity from './CoreEntity'
 import {
+  Contract,
+  providers as ethersProvider,
+  utils as ethersUtils,
+} from 'ethers'
+
+import { appIntent } from '../utils/intent'
+import {
+  Abi,
   AragonArtifact,
   AragonManifest,
   Metadata,
-  Abi,
-  AppIntent,
+  AppData,
+  PathOptions,
 } from '../types'
-import { resolveManifest, resolveArtifact } from '../utils/metadata'
+import ForwardingPath from './ForwardingPath'
+import Organization from './Organization'
+import Repo from './Repo'
+import Role from './Role'
+import { resolveArtifact, resolveManifest } from '../utils/metadata'
 import IOrganizationConnector from '../connections/IOrganizationConnector'
 
 // TODO:
 // [ ] (ipfs) contentUrl 	String 	The HTTP URL of the app content. Uses the IPFS HTTP provider. E.g. http://gateway.ipfs.io/ipfs/QmdLEDDfi…/ (ContentUri passing through the resolver)
 
-export interface AppData {
-  address: string
-  appId: string
-  artifact?: string | null
-  codeAddress: string
-  contentUri?: string
-  isForwarder?: boolean
-  isUpgradeable?: boolean
-  kernelAddress: string
-  manifest?: string | null
-  name?: string
-  registry?: string
-  registryAddress: string
-  repoAddress?: string
-  version?: string
-}
-
-export default class App extends CoreEntity {
-  #metadata!: Metadata
+export default class App {
+  #metadata: Metadata
   readonly address: string
   readonly appId: string
   readonly codeAddress: string
@@ -41,20 +33,14 @@ export default class App extends CoreEntity {
   readonly isUpgradeable?: boolean
   readonly kernelAddress: string
   readonly name?: string
+  readonly organization: Organization
   readonly registry?: string
   readonly registryAddress: string
   readonly repoAddress?: string
   readonly version?: string
 
-  constructor(
-    data: AppData,
-    metadata: Metadata,
-    connector: IOrganizationConnector
-  ) {
-    super(connector)
-
+  constructor(data: AppData, metadata: Metadata, organization: Organization) {
     this.#metadata = metadata
-
     this.address = data.address
     this.appId = data.appId
     this.codeAddress = data.codeAddress
@@ -63,30 +49,25 @@ export default class App extends CoreEntity {
     this.isUpgradeable = data.isUpgradeable
     this.kernelAddress = data.kernelAddress
     this.name = data.name
+    this.organization = organization
     this.registry = data.registry
     this.registryAddress = data.registryAddress
     this.repoAddress = data.repoAddress
     this.version = data.version
   }
 
-  static async create(
-    data: AppData,
-    connector: IOrganizationConnector
-  ): Promise<App> {
-    const artifact = await resolveArtifact(data)
-    const manifest = await resolveManifest(data)
-
-    const metadata: Metadata = [artifact, manifest]
-
-    return new App(data, metadata, connector)
+  static async create(data: AppData, organization: Organization): Promise<App> {
+    const artifact = await resolveArtifact(organization.connection.ipfs, data)
+    const manifest = await resolveManifest(organization.connection.ipfs, data)
+    return new App(data, [artifact, manifest], organization)
   }
 
-  async repo(): Promise<Repo> {
-    return this._connector.repoForApp(this.address)
+  private orgConnector(): IOrganizationConnector {
+    return this.organization.connection.orgConnector
   }
 
-  async roles(): Promise<Role[]> {
-    return this._connector.rolesForAddress(this.address)
+  get provider(): ethersProvider.Provider {
+    return this.organization.connection.ethersProvider
   }
 
   get artifact(): AragonArtifact {
@@ -101,15 +82,71 @@ export default class App extends CoreEntity {
     return this.artifact.abi
   }
 
-  get intents(): AppIntent[] {
-    return this.artifact.functions
+  async repo(): Promise<Repo> {
+    return this.orgConnector().repoForApp(this.organization, this.address)
   }
 
-  get deprecatedIntents(): { [version: string]: AppIntent[] } {
-    return this.artifact.deprecatedFunctions
+  async roles(): Promise<Role[]> {
+    return this.orgConnector().rolesForAddress(this.organization, this.address)
   }
 
-  get appName(): string {
-    return this.artifact.appName
+  toJSON() {
+    return {
+      ...this,
+      // Organization creates a cycling reference that makes
+      // the object impossible to pass through JSON.stringify().
+      organization: null,
+    }
+  }
+
+  ethersContract(): Contract {
+    if (!this.abi) {
+      throw new Error(
+        `No ABI specified in app for ${this.address}. Make sure the metada for the app is available`
+      )
+    }
+    return new Contract(this.address, this.abi, this.provider)
+  }
+
+  ethersInterface(): ethersUtils.Interface {
+    if (!this.abi) {
+      throw new Error(
+        `No ABI specified in app for ${this.address}. Make sure the metada for the app is available`
+      )
+    }
+    return new ethersUtils.Interface(this.abi)
+  }
+
+  /**
+   * Calculate the forwarding path for an app action
+   * that invokes `methodSignature` with `params`.
+   *
+   * @param  {string} methodSignature
+   * @param  {Array<*>} params
+   * @param  {Object} options
+   * @return {Promise<ForwardingPath>} An object that represents the forwarding path corresponding to an action.
+   */
+  async intent(
+    methodSignature: string,
+    params: any[],
+    options: PathOptions = {}
+  ): Promise<ForwardingPath> {
+    const sender = options.actAs || this.organization.connection.actAs
+    if (!sender) {
+      throw new Error(
+        `No sender address specified. Use 'actAs' option or set one as default on your organization connection.`
+      )
+    }
+
+    const installedApps = await this.organization.apps()
+
+    return appIntent(
+      sender,
+      this,
+      methodSignature,
+      params,
+      installedApps,
+      this.provider
+    )
   }
 }

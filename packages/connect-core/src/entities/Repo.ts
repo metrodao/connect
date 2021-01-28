@@ -1,42 +1,27 @@
-import CoreEntity from './CoreEntity'
 import {
   AragonArtifact,
+  AragonArtifactRole,
   AragonManifest,
   Metadata,
-  AragonArtifactRole,
+  RepoData,
 } from '../types'
-import IOrganizationConnector from '../connections/IOrganizationConnector'
-import { resolveMetadata, resolveManifest } from '../utils/metadata'
+import Organization from './Organization'
+import { resolveArtifact, resolveManifest } from '../utils/metadata'
 
-export interface RepoData {
-  address: string
-  artifact?: string | null
-  contentUri?: string
-  manifest?: string | null
-  name: string
-  registry?: string
-  registryAddress?: string
-}
-
-export default class Repo extends CoreEntity {
+export default class Repo {
   #metadata!: Metadata
   readonly address: string
   readonly contentUri?: string
+  readonly lastVersion?: string
   readonly name: string
   readonly registry?: string
   readonly registryAddress?: string
 
-  constructor(
-    data: RepoData,
-    metadata: Metadata,
-    connector: IOrganizationConnector
-  ) {
-    super(connector)
-
+  constructor(data: RepoData, metadata: Metadata) {
     this.#metadata = metadata
-
     this.address = data.address
     this.contentUri = data.contentUri
+    this.lastVersion = data.lastVersion
     this.name = data.name
     this.registry = data.registry
     this.registryAddress = data.registryAddress
@@ -44,18 +29,11 @@ export default class Repo extends CoreEntity {
 
   static async create(
     data: RepoData,
-    connector: IOrganizationConnector
+    organization: Organization
   ): Promise<Repo> {
-    const artifact = await resolveMetadata(
-      'artifact.json',
-      data.contentUri,
-      data.artifact
-    )
-    const manifest = await resolveManifest(data)
-
-    const metadata: Metadata = [artifact, manifest]
-
-    return new Repo(data, metadata, connector)
+    const artifact = await resolveArtifact(organization.connection.ipfs, data)
+    const manifest = await resolveManifest(organization.connection.ipfs, data)
+    return new Repo(data, [artifact, manifest])
   }
 
   get artifact(): AragonArtifact {
