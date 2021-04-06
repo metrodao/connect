@@ -10,18 +10,16 @@ import { Address, log } from '@graphprotocol/graph-ts'
  * which must have the same name.
  */
 export function getTemplateForApp(appAddress: Address): string | null {
-  const AGREEMENT_ADDRESS = Address.fromString('0x8a9893db28fe41bcafc07c9c4da73a6a85d3732c')
-  const STAKING_ADDRESS = Address.fromString('0xe5d38ff3b8bee1d69049fa0dac41a98446746f0b')
+  //Once we start gardens we could use this appId instead of the address, leaving the address for now because the subgraph entities id are not 
+  //using the app address
+  // const AGREEMENT_OPEN = '0x41dd0b999b443a19321f2f34fe8078d1af95a1487b49af4c2ca57fb9e3e5331e'
 
+  // const AGREEMENT_ADDRESS = Address.fromString('0x15d99c0ba7cd951a9cadeb9bff4d603a1af23c3c') // RINKEBY AGREEMENT
+   const AGREEMENT_ADDRESS = Address.fromString('0x59a15718992a42082ab2306bc6cbd662958a178c')
   if (AGREEMENT_ADDRESS.equals(appAddress)) {
     return 'Agreement'
-  } else {
-    if (STAKING_ADDRESS.equals(appAddress)) {
-      return 'Staking'
-    } else {
-        return null
-    }
-  }
+  } 
+  return null
 }
 
 export function onOrgTemplateCreated(orgAddress: Address): void {}

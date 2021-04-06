@@ -338,7 +338,7 @@ function updateStaking(stakingAddress: Address, token: Address, user: Address): 
   staking.locked = balance.value1
   staking.available = staking.total.minus(staking.locked)
   staking.save()
-
+  
   return staking
 }
 
