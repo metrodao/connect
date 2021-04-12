@@ -8,20 +8,20 @@
   "RegistryDataSources": [
     {
       "name": "aragonpm.eth",
-      "address": "0x3c9fdcf51c3447f629fc61f6aaaf2ac3ea852040",
-      "startBlock": "10076177"
+      "address": "0xb10ee07356b175a3bec591745296ed93d2f857f3",
+      "startBlock": "10076187"
     },
     {
-      "name": "1hive.aragonpm.eth",
-      "address": "0x812672c031210b439a5befc8f397d639e97e3738",
-      "startBlock": "10076193"
+      "name": "open.aragonpm.eth",
+      "address": "0xac9ca92d16e8bc0505eda84573d614ffecd8a293",
+      "startBlock": "14515167"
     }
   ],
   "KernelDataSources": [
     {
       "name": "beehive",
-      "address": "0x6a8b8891c5f6de1fcf1ab889e7a06f6b60431641",
-      "startBlock": "10546308"
+      "address": "0x8ccbeab14b5ac4a431fffc39f4bec4089020a155",
+      "startBlock": "14861344"
     }
   ]
 }

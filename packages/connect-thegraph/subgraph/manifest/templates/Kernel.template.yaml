@@ -22,7 +22,6 @@
       - Organization
       - App
       - Implementation
-      - Repo
     abis:
       - name: Kernel
         file: ./abis/Kernel.json

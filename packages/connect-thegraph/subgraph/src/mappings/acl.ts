@@ -117,8 +117,9 @@ function loadOrCreateRole(appAddress: Address, roleHash: Bytes): RoleEntity {
   let role = RoleEntity.load(roleId)
   if (role === null) {
     role = new RoleEntity(roleId)
-    role.hash = roleHash
+    role.roleHash = roleHash
     role.app = appAddress.toHexString()
+    role.appAddress = appAddress
     role.manager = Bytes.fromHexString(ZERO_ADDR) as Bytes
   }
   return role!
@@ -149,8 +150,9 @@ function loadOrCreatePermission(
     permission.granteeAddress = granteeAddress
     permission.allowed = false
     permission.params = []
-    permission.app = appAddress.toHexString()
+    permission.appAddress = appAddress
     permission.role = buildRoleId(appAddress, roleHash)
+    permission.roleHash = roleHash
   }
   return permission!
 }

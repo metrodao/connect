@@ -8,6 +8,7 @@ coverage
 
 # Production subgraph
 generated
+build
 subgraph.yaml
 
 .yarn/*
