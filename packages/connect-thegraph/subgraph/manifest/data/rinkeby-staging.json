@@ -5,13 +5,6 @@
   "ens": "0x98df287b6c145399aaa709692c8d308357bc085d",
   "ens_old": "0x0000000000000000000000000000000000000000",
   "DAOFactoryDataSources": [],
-  "KernelDataSources": [
-    {
-      "name": "ancash",
-      "address": "0x51A41E43af0774565f0be5cEbC50C693CC19E4eE",
-      "startBlock": "7087818"
-    }
-  ],
   "APMFactoryDataSources": [
     {
       "name": "ApmRegistryFactory",
@@ -19,5 +12,15 @@
       "startBlock": "3224175"
     }
   ],
-  "RegistryDataSources": []
+  "RegistryDataSources": [],
+  "KernelDataSources": [],
+  "dataSources": {
+    "Organizations": [
+      {
+        "address": "0x7777cd7c9c6d3537244871ac8e73b3cb9710d45a",
+        "name": "1Hive Garden",
+        "startBlock": 7887667
+      }
+    ]
+  }
 }
