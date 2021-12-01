@@ -17,11 +17,17 @@ export type IpfsResolverDeclaration =
   | IpfsResolverDeclarationObject
   | string
 
+export type RadspecOptions = {
+  userFunctions?: Record<string, string>
+  userHelpers?: Record<string, unknown>
+}
+
 export type ConnectOptions = {
   actAs?: string
   ethereum?: object
   ipfs?: IpfsResolverDeclaration
   network?: Networkish
+  radspec?: RadspecOptions
   verbose?: boolean
 }
 

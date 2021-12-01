@@ -1,5 +1,3 @@
-import { Provider } from '@ethersproject/providers'
-
 import { buildApprovePreTransactions } from '../utils/transactions'
 import {
   ForwardingPathData,
@@ -12,6 +10,7 @@ import ForwardingPathDescription, {
 } from '../utils/descriptor/index'
 import App from './App'
 import Transaction from './Transaction'
+import { ConnectionContext } from '..'
 
 const normalizePreTransactions = (
   preTransactions: (Transaction | TransactionData)[]
@@ -25,7 +24,7 @@ const normalizePreTransactions = (
 
 export default class ForwardingPath {
   #installedApps: App[]
-  #provider: Provider
+  #connection: ConnectionContext
   readonly destination: App
   readonly path: Transaction[]
   readonly transactions: Transaction[]
@@ -33,10 +32,10 @@ export default class ForwardingPath {
   constructor(
     data: ForwardingPathData,
     installedApps: App[],
-    provider: Provider
+    connection: ConnectionContext
   ) {
     this.#installedApps = installedApps
-    this.#provider = provider
+    this.#connection = connection
     this.destination = data.destination
     this.path = data.path
     this.transactions = data.transactions
@@ -59,7 +58,7 @@ export default class ForwardingPath {
         description = await describePath(
           this.path,
           this.#installedApps,
-          this.#provider
+          this.#connection
         )
         // eslint-disable-next-line no-empty
       } catch (_) {}
@@ -75,7 +74,7 @@ export default class ForwardingPath {
     return buildApprovePreTransactions(
       this.transactions[0],
       tokenData,
-      this.#provider
+      this.#connection
     )
   }
 

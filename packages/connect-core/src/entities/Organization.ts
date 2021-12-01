@@ -68,7 +68,7 @@ export default class Organization {
     this.connection = connection
   }
 
-  get location() {
+  get location(): string {
     return this.connection.orgLocation
   }
 
@@ -169,7 +169,7 @@ export default class Organization {
     const describedSteps = await describePath(
       decodeForwardingPath(script),
       installedApps,
-      this.connection.ethersProvider
+      this.connection
     )
 
     return new ForwardingPathDescription(describedSteps, installedApps)
@@ -179,10 +179,6 @@ export default class Organization {
   async describeTransaction(
     transaction: Transaction
   ): Promise<PostProcessDescription> {
-    return describeTransaction(
-      transaction,
-      await this.apps(),
-      this.connection.ethersProvider
-    )
+    return describeTransaction(transaction, await this.apps(), this.connection)
   }
 }

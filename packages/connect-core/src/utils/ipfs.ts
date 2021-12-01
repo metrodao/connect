@@ -2,10 +2,7 @@ import { IpfsResolver } from '../types'
 import { ErrorConnection, ErrorUnexpectedResult } from '../errors'
 import { createCacheStore } from './cache-store'
 
-export function ipfsResolver(
-  urlTemplate: string,
-  cache: number = 0
-): IpfsResolver {
+export function ipfsResolver(urlTemplate: string, cache = 0): IpfsResolver {
   const cacheStore = cache === 0 ? null : createCacheStore<object>(cache)
 
   return {

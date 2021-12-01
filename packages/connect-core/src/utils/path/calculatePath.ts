@@ -1,6 +1,5 @@
 import { isAddress } from '@ethersproject/address'
 import { id } from '@ethersproject/hash'
-import { Provider } from '@ethersproject/providers'
 
 import { ErrorInvalid } from '../../errors'
 import { TransactionPath } from '../../types'
@@ -15,6 +14,7 @@ import {
   createForwarderTransactionBuilder,
   buildForwardingFeePreTransactions,
 } from '../transactions'
+import { ConnectionContext } from '../..'
 
 /**
  * Calculate the forwarding path for a transaction to `destination`
@@ -26,7 +26,7 @@ async function calculateForwardingPath(
   directTransaction: Transaction,
   forwardersWithPermission: string[],
   forwarders: string[],
-  provider: Provider
+  connection: ConnectionContext
 ): Promise<TransactionPath> {
   // No forwarders can perform the requested action
   if (forwardersWithPermission.length === 0) {
@@ -42,7 +42,7 @@ async function calculateForwardingPath(
     forwarder: string,
     script: string,
     path: Transaction[],
-    provider: Provider
+    connection: ConnectionContext
   ): Promise<TransactionPath> => {
     const transaction = createForwarderTransaction(forwarder, script)
 
@@ -50,7 +50,7 @@ async function calculateForwardingPath(
     // as it's the only one that will be executed by the user
     try {
       const forwardingFeePreTransactions =
-        await buildForwardingFeePreTransactions(transaction, provider)
+        await buildForwardingFeePreTransactions(transaction, connection)
       // If that happens, we give up as we should've been able to perform the action with this
       // forwarding path
       return {
@@ -66,12 +66,12 @@ async function calculateForwardingPath(
   // with `sig` on `address` can forward for us directly
   for (const forwarder of forwardersWithPermission) {
     const script = encodeCallScript([directTransaction])
-    if (await canForward(forwarder, sender, script, provider)) {
+    if (await canForward(forwarder, sender, script, connection)) {
       return buildForwardingPath(
         forwarder,
         script,
         [directTransaction],
-        provider
+        connection
       )
     }
   }
@@ -119,11 +119,11 @@ async function calculateForwardingPath(
     // Encode the previous transaction into an EVM callscript
     const script = encodeCallScript([path[0]])
 
-    if (await canForward(previousForwarder, forwarder, script, provider)) {
-      if (await canForward(forwarder, sender, script, provider)) {
+    if (await canForward(previousForwarder, forwarder, script, connection)) {
+      if (await canForward(forwarder, sender, script, connection)) {
         // The previous forwarder can forward a transaction for this forwarder,
         // and this forwarder can forward for our address, so we have found a path
-        return buildForwardingPath(forwarder, script, path, provider)
+        return buildForwardingPath(forwarder, script, path, connection)
       } else {
         // The previous forwarder can forward a transaction for this forwarder,
         // but this forwarder can not forward for our address, so we add it as a
@@ -157,7 +157,7 @@ export async function calculateTransactionPath(
   methodSignature: string,
   params: any[],
   apps: App[],
-  provider: Provider,
+  connection: ConnectionContext,
   finalForwarder?: string //Address of the final forwarder that can perfom the action. Needed for actions that aren't in the ACL but whose execution depends on other factors
 ): Promise<TransactionPath> {
   // The direct transaction we eventually want to perform
@@ -253,6 +253,6 @@ export async function calculateTransactionPath(
     directTransaction,
     forwardersWithPermission,
     forwarders,
-    provider
+    connection
   )
 }

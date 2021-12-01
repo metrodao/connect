@@ -1,20 +1,19 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
 /* eslint-disable no-empty */
-import { Provider } from '@ethersproject/providers'
-
 import {
   tryEvaluatingRadspec,
   tryDescribingUpdateAppIntent,
   postprocessRadspecDescription,
 } from '../radspec/index'
 import { StepDecoded, StepDescribed, PostProcessDescription } from '../../types'
+import { ConnectionContext } from '../..'
 import App from '../../entities/App'
 import Transaction from '../../entities/Transaction'
 
 export async function describeStep(
   step: StepDecoded,
   installedApps: App[],
-  provider: Provider
+  connection: ConnectionContext
 ): Promise<StepDescribed> {
   let decoratedStep
   // TODO: Add intent Basket support
@@ -28,7 +27,11 @@ export async function describeStep(
   // Finally, if the step wasn't handled yet, evaluate via radspec normally
   if (!decoratedStep) {
     try {
-      decoratedStep = await tryEvaluatingRadspec(step, installedApps, provider)
+      decoratedStep = await tryEvaluatingRadspec(
+        step,
+        installedApps,
+        connection
+      )
     } catch (err) {}
   }
 
@@ -49,7 +52,7 @@ export async function describeStep(
     decoratedStep.children = await describePath(
       decoratedStep.children,
       installedApps,
-      provider
+      connection
     )
   }
 
@@ -63,17 +66,17 @@ export async function describeStep(
 export async function describePath(
   path: StepDecoded[],
   installedApps: App[],
-  provider: Provider
+  connection: ConnectionContext
 ): Promise<StepDescribed[]> {
   return Promise.all(
-    path.map(async (step) => describeStep(step, installedApps, provider))
+    path.map(async (step) => describeStep(step, installedApps, connection))
   )
 }
 
 export async function describeTransaction(
   transaction: Transaction,
   installedApps: App[],
-  provider: Provider
+  connection: ConnectionContext
 ): Promise<PostProcessDescription> {
   if (!transaction.to) {
     throw new Error(`Could not describe transaction: missing 'to'`)
@@ -87,7 +90,7 @@ export async function describeTransaction(
     description = await tryEvaluatingRadspec(
       transaction,
       installedApps,
-      provider
+      connection
     )
 
     if (description) {

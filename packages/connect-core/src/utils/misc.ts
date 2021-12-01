@@ -29,7 +29,7 @@ export function normalizeFiltersAndCallback<C, F>(
 
 const warned = new Map<string, boolean>()
 
-export function warn(messages: any | any[], once: boolean = true) {
+export function warn(messages: any | any[], once = true) {
   if (process.env.NODE_ENV !== 'development') {
     return
   }

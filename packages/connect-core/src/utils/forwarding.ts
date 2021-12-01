@@ -1,5 +1,5 @@
 import { Contract } from '@ethersproject/contracts'
-import { Provider } from '@ethersproject/providers'
+import { ConnectionContext } from '..'
 import { forwarderAbi } from './abis'
 
 export const FORWARD_SIG = '0xd948d468' // function forward(bytes)
@@ -58,10 +58,14 @@ export function canForward(
   forwarderAddress: string,
   sender: string,
   script: string,
-  provider: Provider
+  connection: ConnectionContext
 ): Promise<boolean> {
   // Check if a token approval pretransaction is needed due to the forwarder requiring a fee
-  const forwarder = new Contract(forwarderAddress, forwarderAbi, provider)
+  const forwarder = new Contract(
+    forwarderAddress,
+    forwarderAbi,
+    connection.ethersProvider
+  )
 
   return forwarder.canForward(sender, script).catch(() => false)
 }

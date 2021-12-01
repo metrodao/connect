@@ -1,6 +1,5 @@
 import type { Address } from '@1hive/connect-types'
 import { Result } from '@ethersproject/abi'
-import { Provider } from '@ethersproject/providers'
 
 import { addressesEqual } from './address'
 import {
@@ -12,6 +11,7 @@ import { getForwardingPath, getACLForwardingPath } from './path/index'
 import { StepDecoded } from '../types'
 import App from '../entities/App'
 import ForwardingPath from '../entities/ForwardingPath'
+import { ConnectionContext } from '..'
 
 export async function appIntent(
   sender: Address,
@@ -19,7 +19,7 @@ export async function appIntent(
   methodSignature: string,
   params: any[],
   installedApps: App[],
-  provider: Provider
+  connection: ConnectionContext
 ): Promise<ForwardingPath> {
   const acl = installedApps.find((app) => app.name === 'acl')
 
@@ -31,7 +31,7 @@ export async function appIntent(
         methodSignature,
         params,
         installedApps,
-        provider
+        connection
       )
     } catch (_) {
       // emtpy path
@@ -42,7 +42,7 @@ export async function appIntent(
           transactions: [],
         },
         installedApps,
-        provider
+        connection
       )
     }
   }
@@ -53,7 +53,7 @@ export async function appIntent(
     methodSignature,
     params,
     installedApps,
-    provider
+    connection
   )
 }
 

@@ -1,13 +1,13 @@
 import type { Address } from '@1hive/connect-types'
 import { Interface, Fragment, FunctionFragment } from '@ethersproject/abi'
 import { Contract } from '@ethersproject/contracts'
-import { Provider } from '@ethersproject/providers'
 import { ErrorInvalid, ErrorUnsufficientBalance } from '../errors'
 import { erc20ABI, forwarderAbi, forwarderFeeAbi } from './abis'
 import { findMethodAbiFragment } from './abi'
 import { TokenData } from '../types'
 import App from '../entities/App'
 import Transaction from '../entities/Transaction'
+import { ConnectionContext } from '..'
 
 export async function createDirectTransaction(
   sender: Address,
@@ -79,13 +79,17 @@ export function createForwarderTransactionBuilder(
 export async function buildApprovePreTransactions(
   transaction: Transaction,
   tokenData: TokenData,
-  provider: Provider
+  connection: ConnectionContext
 ): Promise<Transaction[]> {
   // Token allowance pre-transaction
   const { from, to } = transaction
   const { address: tokenAddress, value: tokenValue, spender } = tokenData
 
-  const tokenContract = new Contract(tokenAddress, erc20ABI, provider)
+  const tokenContract = new Contract(
+    tokenAddress,
+    erc20ABI,
+    connection.ethersProvider
+  )
   const balance = await tokenContract.balanceOf(from)
   const tokenValueBN = BigInt(tokenValue.toString())
 
@@ -133,11 +137,15 @@ export async function buildApprovePreTransactions(
 
 export async function buildForwardingFeePreTransactions(
   forwardingTransaction: Transaction,
-  provider: Provider
+  connection: ConnectionContext
 ): Promise<Transaction[]> {
   const { to: forwarderAddress, from } = forwardingTransaction
 
-  const forwarderFee = new Contract(forwarderAddress, forwarderFeeAbi, provider)
+  const forwarderFee = new Contract(
+    forwarderAddress,
+    forwarderFeeAbi,
+    connection.ethersProvider
+  )
 
   const feeDetails = { amount: BigInt(0), tokenAddress: '' }
   try {
@@ -163,7 +171,7 @@ export async function buildForwardingFeePreTransactions(
     return buildApprovePreTransactions(
       forwardingTransaction,
       tokenData,
-      provider
+      connection
     )
   }
   return []

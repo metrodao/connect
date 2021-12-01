@@ -255,6 +255,11 @@ export type IpfsResolver = {
   json: (cid: string, path?: string) => Promise<object>
 }
 
+export type RadspecOptions = {
+  userFunctions?: Record<string, string>
+  userHelpers?: Record<string, unknown>
+}
+
 export type ConnectionContext = {
   actAs: Address | null
   ethereumProvider: object | null
@@ -264,6 +269,7 @@ export type ConnectionContext = {
   orgAddress: Address
   orgConnector: IOrganizationConnector
   orgLocation: string
+  radspec?: RadspecOptions
   verbose: boolean
 }
 

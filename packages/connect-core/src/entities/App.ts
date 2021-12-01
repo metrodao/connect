@@ -144,7 +144,7 @@ export default class App {
       methodSignature,
       params,
       installedApps,
-      this.provider
+      this.organization.connection
     )
   }
 }

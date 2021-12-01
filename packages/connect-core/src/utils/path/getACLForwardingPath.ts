@@ -1,11 +1,11 @@
 import type { Address } from '@1hive/connect-types'
-import { Provider } from '@ethersproject/providers'
 
 import { getForwardingPath } from './getForwardingPath'
 import { findMethodAbiFragment } from '../abi'
 import { findAppMethodFromSignature } from '../app'
 import App from '../../entities/App'
 import ForwardingPath from '../../entities/ForwardingPath'
+import { ConnectionContext } from '../..'
 
 /**
  * Get the permission manager for an `app`'s and `role`.
@@ -38,7 +38,7 @@ export async function getACLForwardingPath(
   methodSignature: string,
   params: any[],
   installedApps: App[],
-  provider: Provider
+  connection: ConnectionContext
 ): Promise<ForwardingPath> {
   const method = findAppMethodFromSignature(acl, methodSignature, {
     allowDeprecated: false,
@@ -55,7 +55,7 @@ export async function getACLForwardingPath(
       methodSignature,
       params,
       installedApps,
-      provider
+      connection
     )
   } else {
     // Some ACL functions don't have a role and are instead protected by a manager
@@ -88,7 +88,7 @@ export async function getACLForwardingPath(
       methodSignature,
       params,
       installedApps,
-      provider,
+      connection,
       manager
     )
   }

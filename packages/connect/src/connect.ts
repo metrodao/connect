@@ -14,6 +14,7 @@ async function connect(
     ethereum: ethereumProvider,
     ipfs,
     network,
+    radspec,
     verbose,
   }: ConnectOptions = {}
 ): Promise<Organization> {
@@ -33,6 +34,7 @@ async function connect(
     orgAddress,
     orgConnector,
     orgLocation: location,
+    radspec: radspec,
     verbose: verbose ?? false,
   }
 

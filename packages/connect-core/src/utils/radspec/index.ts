@@ -1,11 +1,11 @@
 import * as radspec from '@1hive/radspec'
-import { Provider } from '@ethersproject/providers'
 
 import { addressesEqual } from '../address'
 import { findAppMethodFromData } from '../app'
 import { filterAndDecodeAppUpgradeIntents } from '../intent'
 import { Abi, AppMethod, StepDecoded, StepDescribed } from '../../types'
 import App from '../../entities/App'
+import { ConnectionContext } from '../..'
 
 interface FoundMethod {
   method?: AppMethod
@@ -18,7 +18,7 @@ interface FoundMethod {
 export async function tryEvaluatingRadspec(
   intent: StepDecoded,
   installedApps: App[],
-  provider: Provider // Decorated intent with description, if one could be made
+  connection: ConnectionContext // Decorated intent with description, if one could be made
 ): Promise<StepDescribed> {
   const app = installedApps.find((app) =>
     addressesEqual(app.address, intent.to)
@@ -58,7 +58,10 @@ export async function tryEvaluatingRadspec(
           abi,
           transaction: intent,
         },
-        { provider: provider }
+        {
+          ...connection.radspec,
+          provider: connection.ethersProvider,
+        }
       )
     } catch (err) {
       console.error(
