@@ -5,9 +5,9 @@ import {
   ErrorNotFound,
   ErrorUnexpectedResult,
   Organization,
+  resolveArtifact,
 } from '@1hive/connect-core'
 
-import { resolveArtifact } from '../metadata'
 import { QueryResult } from '../types'
 
 function _getAppVerson(app: any): any {

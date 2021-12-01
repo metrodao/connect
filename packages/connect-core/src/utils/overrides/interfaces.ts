@@ -1,4 +1,4 @@
-import { apmAppId } from '@1hive/connect-core'
+import { apmAppId } from "../app"
 
 // ABIs
 import abiAragonACL from './abi/ACL.json'

@@ -1,4 +1,4 @@
-import { AragonArtifact } from '@1hive/connect-core'
+import { AragonArtifact } from '../../types'
 
 import { getAppInfo } from './interfaces'
 

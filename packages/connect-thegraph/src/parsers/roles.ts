@@ -4,8 +4,8 @@ import {
   PermissionData,
   Role,
   RoleData,
+  resolveArtifact,
 } from '@1hive/connect-core'
-import { resolveArtifact } from '../metadata'
 import { QueryResult } from '../types'
 
 function _parseRole(role: any, app: any, artifact: any): Role {

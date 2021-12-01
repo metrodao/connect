@@ -4,8 +4,8 @@ import {
   IpfsResolver,
   Repo,
   RepoData,
+  resolveMetadata
 } from '@1hive/connect-core'
-import { resolveMetadata } from '../metadata'
 import { QueryResult } from '../types'
 
 export async function parseRepo(

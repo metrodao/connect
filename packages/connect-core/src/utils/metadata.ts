@@ -1,9 +1,7 @@
-import { AragonArtifact, ErrorInvalid, IpfsResolver } from '@1hive/connect-core'
-import {
-  getApmInternalAppInfo,
-  getAragonOsInternalAppInfo,
-  hasAppInfo,
-} from './overrides'
+import { AragonArtifact } from "../types"
+import { ErrorInvalid, IpfsResolver } from ".."
+import { getApmInternalAppInfo, getAragonOsInternalAppInfo, hasAppInfo } from "./overrides"
+
 
 function parseMetadata(name: string, metadata: string): any {
   try {
