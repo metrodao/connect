@@ -32,8 +32,7 @@ export default class App {
   readonly organization: Organization
   readonly registry?: string
   readonly registryAddress: string
-  readonly repoAddress?: string
-  readonly repo: Repo
+  readonly repo: Repo | null
   readonly roles: Role[]
   readonly version?: string
 
@@ -51,9 +50,8 @@ export default class App {
     this.organization = organization
     this.registry = data.registry
     this.registryAddress = data.registryAddress
-    this.repoAddress = data.repoAddress
     this.version = data.version
-    this.repo = new Repo(data.repoData)
+    this.repo = data.repoData ? new Repo(data.repoData) : null
     this.roles = data.rolesData.map((roleData) => new Role(roleData)) || []
   }
 

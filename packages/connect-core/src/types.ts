@@ -76,8 +76,7 @@ export interface AppData {
   name?: string
   registry?: string
   registryAddress: string
-  repoAddress?: string
-  repoData: RepoData
+  repoData?: RepoData
   rolesData: RoleData[]
   version?: string
 }

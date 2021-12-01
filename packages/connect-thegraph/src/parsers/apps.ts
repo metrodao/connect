@@ -68,7 +68,6 @@ function _parseApp(
     registry: app.repo?.registry?.name,
     registryAddress: app.repo?.registry?.address,
     repoData: app.repo,
-    repoAddress: app.repo?.address,
     rolesData: rolesData,
     version: version?.semanticVersion.replace(/,/g, '.'),
   }
@@ -119,7 +118,7 @@ export async function parseApps(
       return resolveArtifact(
         organization.connection.ipfs,
         version?.artifact,
-        version?.contentUriri,
+        version?.contentUri,
         app.appId
       )
     })
