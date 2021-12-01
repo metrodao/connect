@@ -20,9 +20,8 @@ async function getPermissionManager(
   installedApps: App[]
 ) {
   const app = installedApps.find((app) => app.address === appAddress)
-  const roles = await app?.roles()
 
-  return roles?.find((role) => role.hash === roleHash)?.manager
+  return app?.roles?.find((role) => role.hash === roleHash)?.manager
 }
 
 /**

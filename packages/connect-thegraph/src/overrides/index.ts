@@ -1,5 +1,6 @@
+import { AragonArtifact } from '@1hive/connect-core'
+
 import { getAppInfo } from './interfaces'
-import { AragonArtifact } from '../../types'
 
 export function getAragonOsInternalAppInfo(appId: string): AragonArtifact {
   return getAppInfo(appId, 'aragon')

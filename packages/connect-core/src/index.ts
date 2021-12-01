@@ -19,6 +19,7 @@ export { default as Permission } from './entities/Permission'
 export { default as Repo } from './entities/Repo'
 export { default as Role } from './entities/Role'
 export {
+  AragonArtifact,
   ConnectionContext,
   IpfsResolver,
   AppData,

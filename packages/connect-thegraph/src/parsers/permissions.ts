@@ -1,15 +1,11 @@
 import {
   ErrorUnexpectedResult,
-  Organization,
   Permission,
   PermissionData,
 } from '@1hive/connect-core'
 import { QueryResult } from '../types'
 
-export function parsePermissions(
-  result: QueryResult,
-  organization: Organization
-): Permission[] {
+export function parsePermissions(result: QueryResult): Permission[] {
   const permissions = result?.data?.organization?.permissions
 
   if (!Array.isArray(permissions)) {
@@ -36,6 +32,6 @@ export function parsePermissions(
   )
 
   return allowedPermissions.map((data: PermissionData) => {
-    return new Permission(data, organization)
+    return new Permission(data)
   })
 }

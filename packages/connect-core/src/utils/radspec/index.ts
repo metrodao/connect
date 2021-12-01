@@ -93,11 +93,9 @@ export async function tryDescribingUpdateAppIntent(
 
   const app = installedApps.find((app) => app.address === appAddress)
 
-  const repo = await app?.repo()
-
   return {
     ...intent,
-    description: `Upgrade ${appId} app instances to v${repo?.lastVersion}`,
+    description: `Upgrade ${appId} app instances to v${app?.repo?.lastVersion}`,
   }
 }
 

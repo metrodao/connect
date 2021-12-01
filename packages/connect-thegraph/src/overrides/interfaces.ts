@@ -1,4 +1,4 @@
-import { apmAppId } from '../app'
+import { apmAppId } from '@1hive/connect-core'
 
 // ABIs
 import abiAragonACL from './abi/ACL.json'
@@ -15,7 +15,7 @@ import artifactsAragonEVMScriptRegistry from './artifacts/aragon/EVMScriptRegist
 import artifactsApmRegistry from './artifacts/apm/APMRegistry.json'
 import artifactsApmRepo from './artifacts/apm/Repo.json'
 import artifactsApmEnsSubdomainRegistrar from './artifacts/apm/ENSSubdomainRegistrar.json'
-import { Abi } from '../../types'
+import { Abi } from '@1hive/connect-core/src/types'
 
 const ABIS: { [key: string]: any[] } = {
   'aragon/ACL': abiAragonACL.abi,

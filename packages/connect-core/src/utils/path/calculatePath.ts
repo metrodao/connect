@@ -214,7 +214,7 @@ export async function calculateTransactionPath(
     }
   } else {
     // Find entities with the required permissions
-    const role = (await destinationApp.roles()).find(
+    const role = destinationApp.roles.find(
       (role) => role.hash === id(method.roles[0])
     )
 

@@ -66,17 +66,19 @@ export interface TransactionPath {
 export interface AppData {
   address: string
   appId: string
-  artifact?: string | null
+  artifact: AragonArtifact
   codeAddress: string
   contentUri?: string
   isForwarder?: boolean
   isUpgradeable?: boolean
   kernelAddress: string
-  manifest?: string | null
+  manifest: AragonManifest
   name?: string
   registry?: string
   registryAddress: string
   repoAddress?: string
+  repoData: RepoData
+  rolesData: RoleData[]
   version?: string
 }
 
@@ -102,23 +104,25 @@ export interface PermissionData {
 
 export interface RepoData {
   address: string
-  artifact?: string | null
+  artifact: AragonArtifact
   contentUri?: string
   lastVersion?: string
-  manifest?: string | null
+  manifest?: AragonManifest
   name: string
   registry?: string
   registryAddress?: string
+  roles: AragonArtifactRole[]
 }
 
 export interface RoleData {
   appAddress: string
   appId: string
-  artifact?: string | null
-  contentUri?: string
+  grantees?: PermissionData[]
   hash: string
+  id?: string
+  name?: string
   manager?: string
-  grantees?: PermissionData[] | null
+  params: string[]
 }
 
 export interface TransactionData {
@@ -134,8 +138,6 @@ export interface TokenData {
 }
 
 ////// METADATA //////
-
-export type Metadata = (AragonArtifact | AragonManifest)[]
 
 export interface AppMethod {
   roles: string[]

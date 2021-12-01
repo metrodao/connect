@@ -7,7 +7,6 @@ import {
   Abi,
   AragonArtifact,
   AragonManifest,
-  Metadata,
   AppData,
   PathOptions,
 } from '../types'
@@ -15,77 +14,55 @@ import ForwardingPath from './ForwardingPath'
 import Organization from './Organization'
 import Repo from './Repo'
 import Role from './Role'
-import { resolveArtifact, resolveManifest } from '../utils/metadata'
-import IOrganizationConnector from '../connections/IOrganizationConnector'
 
 // TODO:
 // [ ] (ipfs) contentUrl 	String 	The HTTP URL of the app content. Uses the IPFS HTTP provider. E.g. http://gateway.ipfs.io/ipfs/QmdLEDDfi…/ (ContentUri passing through the resolver)
 
 export default class App {
-  #metadata: Metadata
   readonly address: string
   readonly appId: string
+  readonly artifact: AragonArtifact
   readonly codeAddress: string
   readonly contentUri?: string
   readonly isForwarder?: boolean
   readonly isUpgradeable?: boolean
   readonly kernelAddress: string
+  readonly manifest?: AragonManifest
   readonly name?: string
   readonly organization: Organization
   readonly registry?: string
   readonly registryAddress: string
   readonly repoAddress?: string
+  readonly repo: Repo
+  readonly roles: Role[]
   readonly version?: string
 
-  constructor(data: AppData, metadata: Metadata, organization: Organization) {
-    this.#metadata = metadata
+  constructor(data: AppData, organization: Organization) {
     this.address = data.address
     this.appId = data.appId
+    this.artifact = data.artifact
     this.codeAddress = data.codeAddress
     this.contentUri = data.contentUri
     this.isForwarder = data.isForwarder
     this.isUpgradeable = data.isUpgradeable
     this.kernelAddress = data.kernelAddress
+    this.manifest = data.manifest
     this.name = data.name
     this.organization = organization
     this.registry = data.registry
     this.registryAddress = data.registryAddress
     this.repoAddress = data.repoAddress
     this.version = data.version
-  }
-
-  static async create(data: AppData, organization: Organization): Promise<App> {
-    const artifact = await resolveArtifact(organization.connection.ipfs, data)
-    const manifest = await resolveManifest(organization.connection.ipfs, data)
-    return new App(data, [artifact, manifest], organization)
-  }
-
-  private orgConnector(): IOrganizationConnector {
-    return this.organization.connection.orgConnector
+    this.repo = new Repo(data.repoData)
+    this.roles = data.rolesData.map((roleData) => new Role(roleData)) || []
   }
 
   get provider(): Provider {
     return this.organization.connection.ethersProvider
   }
 
-  get artifact(): AragonArtifact {
-    return this.#metadata[0] as AragonArtifact
-  }
-
-  get manifest(): AragonManifest {
-    return this.#metadata[1] as AragonManifest
-  }
-
   get abi(): Abi {
     return this.artifact.abi
-  }
-
-  async repo(): Promise<Repo> {
-    return this.orgConnector().repoForApp(this.organization, this.address)
-  }
-
-  async roles(): Promise<Role[]> {
-    return this.orgConnector().rolesForAddress(this.organization, this.address)
   }
 
   toJSON() {

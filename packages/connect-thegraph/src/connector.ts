@@ -114,7 +114,7 @@ class ConnectorTheGraph implements IOrganizationConnector {
       return this.#gql.performQueryWithParser<Role[]>(
         queries.ROLE_BY_APP_ADDRESS('query'),
         { appAddress: appAddress.toLowerCase() },
-        async (result) => parseRoles(result, organization)
+        async (result) => parseRoles(result, organization.connection.ipfs)
       )
     } catch (err) {
       throw new ErrorUnexpectedResult(
@@ -128,7 +128,7 @@ class ConnectorTheGraph implements IOrganizationConnector {
       return this.#gql.performQueryWithParser<Permission[]>(
         queries.ORGANIZATION_PERMISSIONS('query'),
         { orgAddress: organization.address.toLowerCase() },
-        (result) => parsePermissions(result, organization)
+        (result) => parsePermissions(result)
       )
     } catch (err) {
       throw new ErrorUnexpectedResult(
@@ -147,7 +147,7 @@ class ConnectorTheGraph implements IOrganizationConnector {
       callback,
       async (result) => {
         try {
-          return await parsePermissions(result, organization)
+          return await parsePermissions(result)
         } catch (err) {
           throw new ErrorUnexpectedResult(
             'Unexpected result when fetching the permissions.'
@@ -289,7 +289,7 @@ class ConnectorTheGraph implements IOrganizationConnector {
       { appAddress: appAddress.toLowerCase() },
       async (result) => {
         try {
-          return await parseRepo(result, organization)
+          return await parseRepo(result, organization.connection.ipfs)
         } catch (err) {
           if (err instanceof ErrorNotFound) {
             throw new ErrorNotFound('The app repo wasn’t found.')

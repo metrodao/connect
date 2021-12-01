@@ -1,6 +1,4 @@
-import { resolveArtifact } from '../utils/metadata'
-import { AragonArtifact, Metadata, RoleData } from '../types'
-import Organization from './Organization'
+import { RoleData } from '../types'
 import Permission from './Permission'
 
 export default class Role {
@@ -9,30 +7,18 @@ export default class Role {
   readonly description?: string
   readonly hash!: string
   readonly params?: string[]
-  readonly permissions?: Permission[] | null
+  readonly permissions?: Permission[]
   readonly manager?: string
   readonly name?: string
 
-  constructor(data: RoleData, metadata: Metadata, organization: Organization) {
-    const { roles } = metadata[0] as AragonArtifact
-    const role = roles?.find((role) => role.bytes === data.hash)
-
+  constructor(data: RoleData) {
     this.appAddress = data.appAddress
-    this.description = role?.name
+    this.appId = data.appId
+    this.description = data?.name
     this.hash = data.hash
     this.manager = data.manager
-    this.name = role?.id
-    this.params = role?.params
-    this.permissions = data.grantees?.map(
-      (grantee) => new Permission(grantee, organization)
-    )
-  }
-
-  static async create(
-    data: RoleData,
-    organization: Organization
-  ): Promise<Role> {
-    const artifact = await resolveArtifact(organization.connection.ipfs, data)
-    return new Role(data, [artifact], organization)
+    this.name = data?.id
+    this.params = data?.params
+    this.permissions = data.grantees?.map((grantee) => new Permission(grantee))
   }
 }

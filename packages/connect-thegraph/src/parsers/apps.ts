@@ -1,39 +1,79 @@
 import {
   App,
   AppData,
+  PermissionData,
   ErrorNotFound,
   ErrorUnexpectedResult,
   Organization,
 } from '@1hive/connect-core'
+
+import { resolveArtifact } from '../metadata'
 import { QueryResult } from '../types'
 
-async function _parseApp(app: any, organization: Organization): Promise<App> {
-  const version = app.repo?.versions
+function _getAppVerson(app: any): any {
+  return app.repo?.versions
     .sort(
       (v1: any, v2: any) =>
         parseInt(v2.semanticVersion.replace(/,/g, '')) -
         parseInt(v1.semanticVersion.replace(/,/g, ''))
     )
     .find((version: any) => version.codeAddress === app.version?.codeAddress)
+}
+
+function _parseApp(
+  app: any,
+  version: any,
+  artifact: any,
+  organization: Organization
+): App {
+  const rolesData = app.roles?.map((role: any) => {
+    const artifactRoleData = artifact.roles.find(
+      (r: any) => r.bytes === role.hash
+    )
+    return {
+      ...role,
+      appAddress: app.appAddress,
+      appId: app.appId,
+      id: artifactRoleData?.id,
+      grantees: role?.grantees?.map(
+        (permission: any): PermissionData => ({
+          appAddress: permission?.appAddress,
+          allowed: permission?.allowed,
+          granteeAddress: permission?.granteeAddress,
+          params:
+            permission?.params?.map((param: any) => ({
+              argumentId: param?.argumentId,
+              operationType: param?.operationType,
+              argumentValue: param?.argumentValue,
+            })) || [],
+          roleHash: permission?.roleHash,
+        })
+      ),
+      name: artifactRoleData?.name,
+      params: artifactRoleData?.params,
+    }
+  })
 
   const data: AppData = {
     address: app.address,
     appId: app.appId,
-    artifact: version?.artifact,
+    artifact: artifact,
     codeAddress: app.version?.codeAddress,
     contentUri: version?.contentUri,
     isForwarder: app.isForwarder,
     isUpgradeable: app.isUpgradeable,
     kernelAddress: app.organization?.address,
-    manifest: version?.manifest,
+    manifest: app.manifest,
     name: app.repoName,
     registry: app.repo?.registry?.name,
     registryAddress: app.repo?.registry?.address,
+    repoData: app.repo,
     repoAddress: app.repo?.address,
+    rolesData: rolesData,
     version: version?.semanticVersion.replace(/,/g, '.'),
   }
 
-  return App.create(data, organization)
+  return new App(data, organization)
 }
 
 export async function parseApp(
@@ -50,7 +90,16 @@ export async function parseApp(
     throw new ErrorUnexpectedResult('Unable to parse app.')
   }
 
-  return _parseApp(app, organization)
+  const version = _getAppVerson(app)
+
+  const artifact = resolveArtifact(
+    organization.connection.ipfs,
+    version?.artifact,
+    version?.contentUriri,
+    app.appId
+  )
+
+  return _parseApp(app, version, artifact, organization)
 }
 
 export async function parseApps(
@@ -64,9 +113,20 @@ export async function parseApps(
     throw new ErrorUnexpectedResult('Unable to parse apps.')
   }
 
-  return Promise.all(
-    apps.map(async (app: any) => {
-      return _parseApp(app, organization)
+  const artifacts = await Promise.all(
+    apps.map((app: any) => {
+      const version = _getAppVerson(app)
+      return resolveArtifact(
+        organization.connection.ipfs,
+        version?.artifact,
+        version?.contentUriri,
+        app.appId
+      )
     })
   )
+
+  return apps.map((app: any, index: number) => {
+    const version = _getAppVerson(app)
+    return _parseApp(app, version, artifacts[index], organization)
+  })
 }
